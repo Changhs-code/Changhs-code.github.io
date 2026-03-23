@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>海外仓工具箱</title>
+  <style>
+    :root {
+      --purple: #E9D5FF;
+      --purple-2: #EEDCFF;
+      --deep: #8B5CF6;
+      --deep-2: #7C3AED;
+      --gray: #F5F5F5;
+      --line: #E6E6F0;
+      --text: #1F1F1F;
+      --muted: #6B7280;
+      --success: #16A34A;
+      --danger: #DC2626;
+      --warn: #D97706;
+      --card: #FBF8FF;
+      --shadow: 0 18px 40px rgba(91, 33, 182, 0.08);
+      /* 侧边栏宽度变量，JS 控制展开/收起 */
+      --sidebar-width: 210px;
+      --sidebar-collapsed: 56px;
+      /* 马卡龙灰紫色系 */
+      --sb-bg: #EDE8F5;
+      --sb-bg2: #E4DDEF;
+      --sb-active-bg: #D5CCE8;
+      --sb-border: #CFC6E4;
+      --sb-text: #4A4069;
+      --sb-text-muted: #8078A0;
+      --sb-icon-bg: #D5CCE8;
+      --sb-icon-active: #7C5CBF;
+      --sb-accent: #A78BCA;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Microsoft YaHei", "微软雅黑", "PingFang SC", sans-serif;
+      color: var(--text);
+      background: radial-gradient(900px 380px at 15% 10%, #F1E8FF 0%, transparent 65%),
+                  radial-gradient(600px 300px at 85% 20%, #F6ECFF 0%, transparent 60%),
+                  linear-gradient(180deg, #FFFFFF 0%, #F8F3FF 100%);
+      min-height: 100vh;
+    }
+
+    /* ── 侧边导航 ───────────────────────────────────── */
+    .sidebar {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: var(--sidebar-width);
+      height: 100vh;
+      background: linear-gradient(180deg, var(--sb-bg) 0%, var(--sb-bg2) 100%);
+      border-right: 1px solid var(--sb-border);
+      box-shadow: 2px 0 12px rgba(90, 60, 160, 0.07);
+      padding: 0;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      transition: width 0.25s cubic-bezier(.4,0,.2,1);
+      overflow: hidden;
+    }
+
+    /* 收起状态 */
+    .sidebar.collapsed {
+      width: var(--sidebar-collapsed);
+    }
+
+    /* 顶部品牌区 */
+    .sidebar-brand {
+      padding: 18px 14px 14px;
+      border-bottom: 1px solid var(--sb-border);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 68px;
+      flex-shrink: 0;
+    }
+
+    .sidebar-brand-icon {
+      width: 32px;
+      height: 32px;
+      min-width: 32px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #BDB0DD 0%, #A78BCA 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      box-shadow: 0 2px 6px rgba(120,80,200,0.18);
+    }
+
+    .sidebar-brand-text {
+      overflow: hidden;
+      transition: opacity 0.2s, width 0.2s;
+    }
+
+    .sidebar.collapsed .sidebar-brand-text {
+      opacity: 0;
+      width: 0;
+      pointer-events: none;
+    }
+
+    .sidebar-brand h2 {
+      margin: 0;
+      color: var(--sb-text);
+      font-size: 14px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .sidebar-brand p {
+      margin: 3px 0 0;
+      color: var(--sb-text-muted);
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    /* 导航列表 */
+    .nav-list {
+      flex: 1;
+      padding: 4px 8px;
+      overflow-y: auto;
+    }
+
+    .nav-item {
+      padding: 10px 10px;
+      color: var(--sb-text);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.18s;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-radius: 10px;
+      margin-bottom: 3px;
+      white-space: nowrap;
+      position: relative;
+    }
+
+    .nav-item:hover {
+      background: var(--sb-active-bg);
+      color: var(--sb-icon-active);
+    }
+
+    .nav-item.active {
+      background: var(--sb-active-bg);
+      color: var(--sb-icon-active);
+      font-weight: 600;
+    }
+
+    .nav-item.active::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 20%;
+      height: 60%;
+      width: 3px;
+      border-radius: 999px;
+      background: var(--sb-accent);
+    }
+
+    .nav-icon {
+      font-size: 16px;
+      width: 28px;
+      min-width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: var(--sb-icon-bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.18s;
+      flex-shrink: 0;
+    }
+
+    .nav-item.active .nav-icon,
+    .nav-item:hover .nav-icon {
+      background: #C8BAE8;
+    }
+
+    .nav-label {
+      overflow: hidden;
+      transition: opacity 0.2s, width 0.2s;
+      opacity: 1;
+    }
+
+    .sidebar.collapsed .nav-label {
+      opacity: 0;
+      width: 0;
+      pointer-events: none;
+    }
+
+    /* tooltip for collapsed mode */
+    .sidebar.collapsed .nav-item:hover::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      left: calc(var(--sidebar-collapsed) + 6px);
+      top: 50%;
+      transform: translateY(-50%);
+      background: #4A4069;
+      color: white;
+      padding: 5px 10px;
+      border-radius: 7px;
+      font-size: 12px;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 300;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    /* 折叠按钮 */
+    .sidebar-toggle {
+      padding: 10px 8px;
+      border-top: 1px solid var(--sb-border);
+      display: flex;
+      justify-content: flex-end;
+      flex-shrink: 0;
+    }
+
+    .toggle-btn {
+      width: 30px;
+      height: 30px;
+      border: 1px solid var(--sb-border);
+      background: white;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--sb-text-muted);
+      font-size: 13px;
+      transition: all 0.18s;
+      flex-shrink: 0;
+    }
+
+    .toggle-btn:hover {
+      background: var(--sb-active-bg);
+      color: var(--sb-icon-active);
+      border-color: var(--sb-accent);
+    }
+
+    /* ── 主内容区 ───────────────────────────────────── */
+    .main-content {
+      margin-left: var(--sidebar-width);
+      min-height: 100vh;
+      transition: margin-left 0.25s cubic-bezier(.4,0,.2,1);
+    }
+
+    body.sidebar-collapsed .main-content {
+      margin-left: var(--sidebar-collapsed);
+    }
+
+    .page-section {
+      display: none;
+      padding: 24px 18px 60px;
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+
+    .page-section.active {
+      display: block;
+    }
+
+    /* 通用样式 */
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .brand {
+      font-size: 12px;
+      letter-spacing: 2px;
+      color: #7C6A9A;
+    }
+
+    .help-btn {
+      border: 1px solid var(--line);
+      background: white;
+      color: #4B5563;
+      font-size: 12px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 16px;
+      align-items: stretch;
+      margin-bottom: 18px;
+    }
+
+    .hero-left h1 {
+      margin: 6px 0 6px;
+      font-size: 26px;
+      font-weight: 800;
+    }
+
+    .hero-left p {
+      margin: 0 0 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .steps {
+      display: inline-flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      background: #EFE7FF;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      color: #6B21A8;
+      border: 1px solid #E5D5FF;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid #E5D5FF;
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .stat-card {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      align-items: start;
+    }
+
+    .stat-item {
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+    }
+
+    .stat-title { font-size: 11px; color: var(--muted); }
+    .stat-value { font-size: 18px; font-weight: 800; margin-top: 4px; }
+    .stat-note { font-size: 10px; color: #9CA3AF; margin-top: 6px; }
+    .stat-value.success { color: var(--success); }
+    .stat-value.warn { color: var(--warn); }
+    .stat-value.danger { color: var(--danger); }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .section-desc {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .chips {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+
+    .chip {
+      font-size: 10px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #EEE7FF;
+      color: #6B21A8;
+      border: 1px solid #E5D5FF;
+    }
+
+    .chip.green {
+      background: #DCFCE7;
+      color: #15803D;
+      border-color: #BBF7D0;
+    }
+
+    .btn {
+      background: var(--deep);
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .btn:hover { background: var(--deep-2); }
+
+    .btn.secondary {
+      background: #E5E7EB;
+      color: #111827;
+    }
+
+    .btn.secondary:hover { background: #D1D5DB; }
+
+    .btn.small {
+      padding: 6px 10px;
+      font-size: 11px;
+      border-radius: 8px;
+    }
+
+    .btn.danger-btn {
+      background: #FEE2E2;
+      color: var(--danger);
+    }
+
+    .btn.danger-btn:hover { background: #FECACA; }
+
+    .btn:disabled {
+      background: #C7B3F8;
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+
+    .btn.secondary:disabled {
+      background: #E5E7EB;
+      color: #9CA3AF;
+    }
+
+    .action-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .progress-wrap {
+      margin-top: 8px;
+      background: #EEE7FF;
+      border-radius: 999px;
+      overflow: hidden;
+      height: 10px;
+    }
+
+    .progress-bar {
+      height: 10px;
+      width: 0%;
+      background: var(--deep);
+      transition: width 0.3s ease;
+      border-radius: 999px;
+    }
+
+    .status {
+      font-size: 12px;
+      margin-top: 6px;
+      min-height: 18px;
+    }
+
+    .status.success { color: var(--success); }
+    .status.error { color: var(--danger); }
+    .status.warn { color: var(--warn); }
+
+    .log-box {
+      min-height: 110px;
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.8;
+      white-space: pre-wrap;
+    }
+
+    .table-preview {
+      max-height: 260px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: white;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      background: var(--purple);
+      text-align: center;
+      font-weight: 700;
+      border-bottom: 1px solid var(--line);
+      padding: 7px 8px;
+      white-space: nowrap;
+    }
+
+    tbody td {
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    tbody tr:nth-child(odd) { background: white; }
+    tbody tr:nth-child(even) { background: var(--gray); }
+
+    .td-right { text-align: right; }
+    .td-center { text-align: center; }
+    .td-mono { font-family: monospace; font-size: 10px; }
+
+    .empty-row td {
+      text-align: center;
+      color: var(--muted);
+      padding: 20px;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #F3E8FF;
+      border: 1px solid #E5D5FF;
+      color: #6B21A8;
+      margin-left: 6px;
+    }
+
+    .badge.warn {
+      background: #FEF3C7;
+      border-color: #FDE68A;
+      color: #92400E;
+    }
+
+    /* 模块1: 收入匹配工具 */
+    .upload-zone { margin-bottom: 16px; }
+
+    .upload-main-area {
+      background: var(--gray);
+      border: 2px dashed #D8C7FF;
+      border-radius: 16px;
+      padding: 28px 20px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+
+    .upload-main-area:hover, .upload-main-area.dragover {
+      border-color: var(--deep-2);
+      background: #F5EDFF;
+    }
+
+    .upload-main-area.all-ready {
+      border-color: #86EFAC;
+      background: #F0FDF4;
+    }
+
+    .upload-icon { font-size: 32px; margin-bottom: 6px; line-height: 1; }
+    .upload-hint { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+    .upload-hint b { color: var(--deep-2); }
+    .upload-sub { font-size: 11px; color: #9CA3AF; margin-bottom: 14px; }
+
+    .upload-file-slots {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .file-slot {
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      text-align: left;
+      transition: border-color 0.2s, background 0.2s;
+      min-height: 70px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .file-slot.filled { border-color: #86EFAC; background: #F0FDF4; }
+    .file-slot.error { border-color: #FCA5A5; background: #FEF2F2; }
+
+    .slot-label {
+      font-size: 10px;
+      color: var(--muted);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .slot-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--line);
+      display: inline-block;
+    }
+
+    .slot-dot.green { background: #22C55E; }
+    .slot-dot.red { background: #EF4444; }
+
+    .slot-filename {
+      font-size: 11px;
+      color: #374151;
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .slot-empty { font-size: 11px; color: #C4B5E0; font-style: italic; }
+
+    .slot-remove {
+      font-size: 10px;
+      color: var(--danger);
+      cursor: pointer;
+      margin-top: 4px;
+      display: inline-block;
+    }
+
+    .slot-tag { font-size: 10px; color: var(--success); margin-top: 2px; }
+
+    .result-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .remind-section { margin-bottom: 16px; }
+
+    /* 模块2: 海外仓账单 */
+    .keyword-inline {
+      font-size: 10px;
+      color: #5B21B6;
+      background: #F4EDFF;
+      border: 1px solid #E5D5FF;
+      padding: 6px 8px;
+      border-radius: 10px;
+      margin-bottom: 8px;
+    }
+
+    .kw-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 8px 0;
+    }
+
+    .kw-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #EEE7FF;
+      color: #5B21B6;
+      border: 1px solid #E5D5FF;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 11px;
+    }
+
+    .kw-pill button {
+      border: none;
+      background: transparent;
+      color: #9333EA;
+      cursor: pointer;
+      font-size: 12px;
+      line-height: 1;
+    }
+
+    .kw-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .kw-input {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-size: 12px;
+      min-width: 180px;
+    }
+
+    .upload-area {
+      background: var(--gray);
+      border: 2px dashed #D8C7FF;
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .upload-area.dragover {
+      border-color: var(--deep-2);
+      color: var(--deep-2);
+      background: #F5EDFF;
+    }
+
+    .upload-actions { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .file-list { margin-top: 10px; border-top: 1px solid var(--line); }
+
+    .file-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 0;
+      font-size: 11px;
+      border-bottom: 1px dashed var(--line);
+    }
+
+    .file-item .fname {
+      flex: 1;
+      color: #374151;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .file-item .ftag {
+      background: #F0ECFF;
+      border-radius: 6px;
+      padding: 2px 6px;
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .file-item .ftag.green { background: #DCFCE7; color: #15803D; }
+    .file-item .fremove { color: var(--danger); cursor: pointer; font-size: 11px; white-space: nowrap; }
+
+    .grid-logs {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .missing-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .missing-block {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: white;
+      padding: 10px;
+    }
+
+    .missing-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #5B21B6;
+    }
+
+    .missing-count {
+      font-size: 11px;
+      background: #F3E8FF;
+      border: 1px solid #E5D5FF;
+      padding: 2px 8px;
+      border-radius: 999px;
+      color: #6B21A8;
+    }
+
+    .detail-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10px;
+    }
+
+    .detail-table th {
+      text-align: center;
+      background: #EFE7FF;
+      padding: 6px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .detail-table td {
+      padding: 6px;
+      border-bottom: 1px solid var(--line);
+      text-align: center;
+    }
+
+    .align-right { text-align: right; }
+    .align-left { text-align: left; }
+
+    /* Modal */
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+    }
+
+    .modal.open { display: flex; }
+
+    .modal-card {
+      width: min(720px, 92vw);
+      background: white;
+      border-radius: 16px;
+      padding: 20px;
+      border: 1px solid var(--line);
+      box-shadow: 0 24px 48px rgba(0,0,0,0.12);
+    }
+
+    .modal-card h3 { margin: 0 0 10px; font-size: 15px; }
+    .modal-card p { margin: 6px 0; font-size: 12px; color: #374151; line-height: 1.7; }
+    .modal-card .step-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin: 8px 0;
+      font-size: 12px;
+    }
+    .modal-card .step-num {
+      background: var(--deep);
+      color: white;
+      border-radius: 999px;
+      width: 18px;
+      height: 18px;
+      min-width: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      margin-top: 1px;
+    }
+
+    @media (max-width: 900px) {
+      .sidebar { width: var(--sidebar-collapsed) !important; }
+      .sidebar-brand-text, .nav-label { opacity: 0; width: 0; pointer-events: none; }
+      .main-content { margin-left: var(--sidebar-collapsed) !important; }
+      .hero { grid-template-columns: 1fr; }
+      .grid-2 { grid-template-columns: 1fr; }
+      .result-stats { grid-template-columns: repeat(2, 1fr); }
+      .missing-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 600px) {
+      .result-stats { grid-template-columns: 1fr 1fr; }
+      .action-row .btn { flex: 1; }
+      .upload-file-slots { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <!-- 侧边导航 -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon">🗂️</div>
+      <div class="sidebar-brand-text">
+        <h2>海外仓工具箱</h2>
+        <p>数据自动化处理</p>
+      </div>
+    </div>
+    <div class="nav-list">
+      <div class="nav-item active" data-page="match" data-tooltip="收入匹配工具">
+        <span class="nav-icon">💰</span>
+        <span class="nav-label">收入匹配工具</span>
+      </div>
+      <div class="nav-item" data-page="billing" data-tooltip="账单自动化核算">
+        <span class="nav-icon">📊</span>
+        <span class="nav-label">账单自动化核算</span>
+      </div>
+    </div>
+    <div class="sidebar-toggle">
+      <button class="toggle-btn" id="sidebarToggle" title="收起/展开侧边栏">
+        <span id="toggleIcon">◀</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- 主内容区 -->
+  <main class="main-content">
+    <!-- 模块1: 收入匹配工具 -->
+    <section class="page-section active" id="page-match">
+      <div class="topbar">
+        <div class="brand">INCOME MATCH CONSOLE</div>
+        <button class="help-btn" id="helpBtnMatch">使用说明</button>
+      </div>
+
+      <div class="hero">
+        <div class="hero-left">
+          <h1>订单收入匹配工具</h1>
+          <p>以基准表（云仓报表）为准，自动将 C 端收入表的人民币金额匹配填充至订单收入列空白行，支持两轮匹配策略。</p>
+          <div class="steps">流程：上传两个文件 → 开始匹配 → 下载结果</div>
+        </div>
+        <div class="card">
+          <div class="section-title">任务进度</div>
+          <div class="stat-card">
+            <div class="stat-item">
+              <div class="stat-title">基准表行数</div>
+              <div class="stat-value" id="statTotal">—</div>
+              <div class="stat-note">读取后自动统计</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-title">待匹配行</div>
+              <div class="stat-value" id="statNeed">—</div>
+              <div class="stat-note">有订单号且收入为空</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-title">处理状态</div>
+              <div class="stat-value" id="statStatus">待上传</div>
+              <div class="stat-note">上传完成后可匹配</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card upload-zone">
+        <div class="section-title">上传表格文件</div>
+        <div class="section-desc">将两个 .xlsx 文件拖入下方区域，或点击选择文件；系统自动识别基准表与 C 端收入表。</div>
+        <input type="file" id="multiFileInput" accept=".xlsx" multiple style="display:none" />
+        <div class="upload-main-area" id="uploadMainArea">
+          <div class="upload-icon">📂</div>
+          <div class="upload-hint">点击选择 <b>2 个</b> .xlsx 文件，或拖拽至此处</div>
+          <div class="upload-sub">系统将自动识别：含「卖家订单号」+「订单收入」的为基准表，含「人民币」列的为 C 端收入表</div>
+          <button class="btn" id="chooseFilesBtn" style="margin-top:4px;">选择文件</button>
+          <div class="upload-file-slots">
+            <div class="file-slot" id="slotBase">
+              <div class="slot-label"><span class="slot-dot" id="dotBase"></span> 基准表（云仓报表）</div>
+              <div class="slot-empty" id="slotBaseEmpty">等待上传…</div>
+              <div class="slot-filename" id="slotBaseName" style="display:none"></div>
+              <div class="slot-tag" id="slotBaseTag" style="display:none">✓ 已识别</div>
+              <span class="slot-remove" id="slotBaseRemove" style="display:none">删除</span>
+            </div>
+            <div class="file-slot" id="slotIncome">
+              <div class="slot-label"><span class="slot-dot" id="dotIncome"></span> C 端收入表</div>
+              <div class="slot-empty" id="slotIncomeEmpty">等待上传…</div>
+              <div class="slot-filename" id="slotIncomeName" style="display:none"></div>
+              <div class="slot-tag" id="slotIncomeTag" style="display:none">✓ 已识别</div>
+              <span class="slot-remove" id="slotIncomeRemove" style="display:none">删除</span>
+            </div>
+          </div>
+        </div>
+        <div class="status" id="uploadStatus" style="margin-top:8px;"></div>
+        <div id="sheetSelectWrap" style="display:none; margin-top:10px;">
+          <div style="font-size:11px; color:var(--muted); margin-bottom:4px;">基准表包含多个工作表，请选择含订单数据的工作表：</div>
+          <select id="sheetSelect" style="border:1px solid var(--line); border-radius:8px; padding:6px 10px; font-size:12px; width:100%; background:white;"></select>
+        </div>
+      </div>
+
+      <div class="action-row">
+        <button class="btn secondary" id="resetAllBtn">清空重置</button>
+        <button class="btn" id="matchBtn" disabled>开始匹配</button>
+        <button class="btn secondary" id="downloadMainBtn" disabled>下载「收入匹配完成」</button>
+        <button class="btn secondary" id="downloadRemindBtn" disabled>下载「跨月收入提醒」</button>
+      </div>
+      <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
+      <div class="status" id="processStatus"></div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <div class="section-title">处理日志</div>
+        <div class="log-box" id="logBox">暂无日志，请先上传文件。</div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px;" id="resultCard">
+        <div class="section-title">匹配结果统计</div>
+        <div class="result-stats" id="resultStats">
+          <div class="stat-item">
+            <div class="stat-title">需填充行数</div>
+            <div class="stat-value" id="rNeed">—</div>
+            <div class="stat-note">有订单号且收入空</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-title">第一轮匹配</div>
+            <div class="stat-value success" id="rRound1">—</div>
+            <div class="stat-note">直接匹配订单号</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-title">第二轮匹配</div>
+            <div class="stat-value success" id="rRound2">—</div>
+            <div class="stat-note">去「-」后匹配</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-title">仍未匹配</div>
+            <div class="stat-value danger" id="rUnmatched">—</div>
+            <div class="stat-note">C 端表无对应记录</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card remind-section" id="remindCard">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+          <div class="section-title" style="margin-bottom:0;">
+            跨月收入提醒预览
+            <span class="badge warn" id="remindCount">0 条</span>
+          </div>
+        </div>
+        <div class="section-desc">原本已有订单收入数据，但二次匹配又能找到新金额的记录（原有数据不覆盖，仅提醒）。</div>
+        <div class="table-preview">
+          <table>
+            <thead>
+              <tr>
+                <th style="text-align:left;">卖家订单号</th>
+                <th>原有金额</th>
+                <th>新匹配金额</th>
+                <th>差额</th>
+              </tr>
+            </thead>
+            <tbody id="remindBody">
+              <tr class="empty-row"><td colspan="4">匹配完成后显示</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+          <div class="section-title" style="margin-bottom:0;">
+            收入匹配完成 — 预览
+            <span class="badge" id="previewCount">前 50 行</span>
+          </div>
+        </div>
+        <div class="section-desc">仅展示前 50 行，下载文件包含完整数据（保留原表行序）。</div>
+        <div class="table-preview">
+          <table>
+            <thead>
+              <tr>
+                <th style="text-align:left;">#</th>
+                <th style="text-align:left;">卖家订单号</th>
+                <th>订单收入</th>
+                <th>来源</th>
+              </tr>
+            </thead>
+            <tbody id="previewBody">
+              <tr class="empty-row"><td colspan="4">匹配完成后显示</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 模块2: 海外仓账单自动化 -->
+    <section class="page-section" id="page-billing">
+      <div class="topbar">
+        <div class="brand">AUTO UPLOAD CONSOLE</div>
+        <button class="help-btn" id="helpBtnBilling">帮助中心</button>
+      </div>
+
+      <div class="hero">
+        <div class="hero-left">
+          <h1>海外仓账单自动化上传与核算</h1>
+          <p>按既定规则完成费用换算、收入匹配与利润计算。支持多文件上传，可查验计算明细。</p>
+          <div class="steps">流程：上传模板 → 上传数据 → 开始计算 → 下载结果</div>
+        </div>
+        <div class="card">
+          <div class="section-title">今日任务进度</div>
+          <div class="stat-card">
+            <div class="stat-item">
+              <div class="stat-title">已读取文件</div>
+              <div class="stat-value" id="statFiles">0</div>
+              <div class="stat-note">包含模板与数据</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-title">预计订单数</div>
+              <div class="stat-value" id="statOrders">0</div>
+              <div class="stat-note">上传后自动估算</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-title">处理状态</div>
+              <div class="stat-value" id="statStatus2">待上传</div>
+              <div class="stat-note">上传完成后可计算</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="section-title">模板表格上传</div>
+          <div class="section-desc">仅需上传 1 个统一模板文件（.xlsx）。</div>
+          <div class="upload-area" id="templateDrop">
+            点击上传或拖拽文件至此处（仅支持 .xlsx，单文件）
+            <div class="upload-actions">
+              <input type="file" id="templateInput" accept=".xlsx" style="display:none" />
+              <button class="btn" id="templateBtn">选择模板文件</button>
+              <button class="btn secondary" id="templateReset" disabled>重新上传</button>
+            </div>
+          </div>
+          <div class="status" id="templateStatus"></div>
+          <div class="file-list" id="templateList"></div>
+        </div>
+
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+            <div class="section-title" style="margin-bottom:0;">数据文件上传</div>
+            <div style="display:flex; gap:6px;">
+              <button class="btn secondary small" id="keywordBtn">编辑关键字</button>
+              <button class="btn secondary small" id="clearCacheBtn">清空缓存</button>
+            </div>
+          </div>
+          <div class="section-desc">支持多文件：账单信息、订单信息、支出情况、收入情况。</div>
+          <div class="chips">
+            <div class="chip">账单信息</div>
+            <div class="chip">订单信息</div>
+            <div class="chip">支出情况</div>
+            <div class="chip">收入情况</div>
+          </div>
+          <div class="keyword-inline" id="keywordInline"></div>
+          <div class="upload-area" id="dataDrop">
+            点击上传或拖拽文件至此处（支持多个 .xlsx）
+            <div class="upload-actions">
+              <input type="file" id="dataInput" accept=".xlsx" multiple style="display:none" />
+              <button class="btn" id="dataBtn">选择数据源表格</button>
+            </div>
+          </div>
+          <div class="status" id="dataStatus"></div>
+          <div class="file-list" id="dataList"></div>
+        </div>
+      </div>
+
+      <div class="action-row">
+        <button class="btn secondary" id="newTaskBtn">新建任务</button>
+        <button class="btn" id="processBtn" disabled>开始计算</button>
+        <button class="btn secondary" id="downloadBtn" disabled>下载表格</button>
+      </div>
+      <div class="progress-wrap"><div class="progress-bar" id="progressBar2"></div></div>
+      <div class="status" id="processStatus2"></div>
+
+      <div class="grid-logs">
+        <div class="card">
+          <div class="section-title">计算日志</div>
+          <div class="log-box" id="logBox2">暂无日志</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">未匹配清单</div>
+        <div class="section-desc">仅展示前 200 条，下载结果包含完整数据。</div>
+        <div class="missing-grid">
+          <div class="missing-block">
+            <div class="missing-title">
+              <span>SKU 成本缺失</span>
+              <span class="missing-count" id="missSkuCount">0</span>
+            </div>
+            <table class="detail-table">
+              <thead><tr><th>订单编号</th><th>缺失 SKU</th></tr></thead>
+              <tbody id="missingSkuBody"></tbody>
+            </table>
+          </div>
+          <div class="missing-block">
+            <div class="missing-title">
+              <span>报价档位缺失</span>
+              <span class="missing-count" id="missQuoteCount">0</span>
+            </div>
+            <table class="detail-table">
+              <thead><tr><th>订单编号</th><th>国家</th><th>数量</th><th>收件方式</th><th>档位</th><th>原因</th></tr></thead>
+              <tbody id="missingQuoteBody"></tbody>
+            </table>
+          </div>
+          <div class="missing-block">
+            <div class="missing-title">
+              <span>缺少汇率</span>
+              <span class="missing-count" id="missRateCount">0</span>
+            </div>
+            <table class="detail-table">
+              <thead><tr><th>期间</th><th>币种</th><th>场景</th></tr></thead>
+              <tbody id="missingRateBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">输出结果预览</div>
+        <div class="section-desc">金额字段统一数值形式，保留两位小数。</div>
+        <div class="table-preview">
+          <table>
+            <thead>
+              <tr>
+                <th>订单编号</th>
+                <th>国家</th>
+                <th>期间</th>
+                <th>订单收入</th>
+                <th>订单支出</th>
+                <th>毛利</th>
+                <th>盈亏</th>
+              </tr>
+            </thead>
+            <tbody id="previewBody2">
+              <tr>
+                <td class="align-left">OP2602281513655</td>
+                <td class="align-left">泰国</td>
+                <td class="align-left">202602</td>
+                <td class="align-right">10.50</td>
+                <td class="align-right">8.30</td>
+                <td class="align-right">2.20</td>
+                <td class="align-left">盈</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 帮助 Modal - 收入匹配 -->
+  <div class="modal" id="helpModalMatch">
+    <div class="modal-card">
+      <h3>使用说明</h3>
+      <div class="step-row">
+        <div class="step-num">1</div>
+        <div>将<b>基准表</b>（云仓报表）和 <b>C 端收入表</b> 一起拖入上传区，或点击「选择文件」同时选中两个 .xlsx 文件。<br>系统自动识别：含「卖家订单号」+「订单收入」的为基准表，含「人民币」列的为 C 端收入表。</div>
+      </div>
+      <div class="step-row">
+        <div class="step-num">2</div>
+        <div>确认两个文件槽均显示绿色「已识别」后，若基准表有多个工作表，选择包含订单数据的那个。</div>
+      </div>
+      <div class="step-row">
+        <div class="step-num">3</div>
+        <div>点击「<b>开始匹配</b>」，系统自动执行两轮匹配：<br>&nbsp;&nbsp;• 第一轮：直接用卖家订单号匹配<br>&nbsp;&nbsp;• 第二轮：将 C 端收入表订单号去除「-」后再匹配</div>
+      </div>
+      <div class="step-row">
+        <div class="step-num">4</div>
+        <div>分别下载「<b>收入匹配完成</b>」（仅卖家订单号+订单收入两列，完整行序）和「<b>跨月收入提醒</b>」（已有收入但新匹配到不同金额的记录）。</div>
+      </div>
+      <p style="margin-top:12px; color:var(--muted); font-size:11px;">注意：需将 <code>xlsx.full.min.js</code> 与本文件放在同一目录下。</p>
+      <div style="text-align:right; margin-top:14px;"><button class="btn" id="closeHelpMatch">关闭</button></div>
+    </div>
+  </div>
+
+  <!-- 帮助 Modal - 账单核算 -->
+  <div class="modal" id="helpModalBilling">
+    <div class="modal-card">
+      <h3>操作指南</h3>
+      <p>1. 上传统一模板（仅 .xlsx，单文件）。</p>
+      <p>2. 上传数据源表格（账单信息、订单信息、支出情况、收入情况等，可多次上传）。</p>
+      <p>3. 点击"开始计算"，等待进度完成后下载表格。</p>
+      <div style="text-align:right; margin-top:10px;"><button class="btn" id="closeHelpBilling">关闭</button></div>
+    </div>
+  </div>
+
+  <!-- 关键字 Modal -->
+  <div class="modal" id="keywordModal">
+    <div class="modal-card">
+      <h3>客户经理关键字</h3>
+      <p>用于判断是否走 C 端收入逻辑，可随时增减。</p>
+      <div class="kw-list" id="keywordList"></div>
+      <div class="kw-actions">
+        <input class="kw-input" id="keywordInput" placeholder="输入关键字，回车或点击添加" />
+        <button class="btn small" id="keywordAddBtn">添加</button>
+        <button class="btn secondary small" id="keywordResetBtn">恢复默认</button>
+      </div>
+      <div style="text-align:right; margin-top:10px;"><button class="btn" id="keywordCloseBtn">关闭</button></div>
+    </div>
+  </div>
+
+  <script src="xlsx.full.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
