@@ -1,0 +1,2449 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>东南亚海外仓计费系统</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<style>
+:root {
+  --purple-deep: #1e0a4a;
+  --purple-dark: #2d1b69;
+  --purple-main: #6c3fc5;
+  --purple-light: #9b6ee8;
+  --purple-pale: #c9a8f5;
+  --purple-bg: #f5f0ff;
+  --purple-bg2: #ede0ff;
+  --accent: #a855f7;
+  --white: #ffffff;
+  --gray-light: #faf7ff;
+  --gray: #8b7aaa;
+  --text: #1a1033;
+  --text2: #5a4a7a;
+  --border: #ddd0f5;
+  --success: #7c3aed;
+  --error: #ef4444;
+  --warning: #f59e0b;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'PingFang SC', 'Microsoft YaHei', -apple-system, sans-serif;
+  background: var(--purple-bg);
+  min-height: 100vh;
+  color: var(--text);
+}
+/* 导航栏 */
+.top-nav {
+  background: linear-gradient(135deg, #1e0a4a 0%, #2d1b69 50%, #3b1f7a 100%);
+  border-bottom: 1px solid rgba(155,110,232,0.2);
+  padding: 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 60px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 20px rgba(30,10,74,0.3);
+}
+.nav-logo { display: flex; align-items: center; gap: 10px; }
+.nav-logo .logo-icon {
+  width: 34px; height: 34px;
+  background: linear-gradient(135deg, var(--purple-light), var(--accent));
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px;
+  box-shadow: 0 2px 8px rgba(108,63,197,0.4);
+}
+.nav-logo .logo-text { font-size: 16px; font-weight: 700; color: white; letter-spacing: 0.5px; }
+.nav-tabs { display: flex; gap: 3px; }
+.nav-tab {
+  padding: 7px 16px; border-radius: 8px; cursor: pointer;
+  font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.65);
+  transition: all 0.25s; border: none; background: transparent;
+}
+.nav-tab:hover { color: white; background: rgba(255,255,255,0.08); }
+.nav-tab.active { color: white; background: var(--purple-main); box-shadow: 0 2px 10px rgba(108,63,197,0.35); }
+.nav-right { display: flex; align-items: center; gap: 12px; }
+.price-type-switch { display: flex; background: rgba(255,255,255,0.08); border-radius: 18px; padding: 3px; gap: 2px; }
+.price-type-btn { padding: 4px 14px; border-radius: 14px; font-size: 12px; font-weight: 500; cursor: pointer; border: none; background: transparent; color: rgba(255,255,255,0.65); transition: all 0.2s; }
+.price-type-btn.active { background: white; color: var(--purple-main); font-weight: 600; }
+/* 主容器 */
+.main-container { max-width: 1360px; margin: 0 auto; padding: 24px 28px; padding-bottom: 80px; }
+/* 卡片 */
+.card {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(30,10,74,0.06), 0 4px 16px rgba(30,10,74,0.08);
+  margin-bottom: 20px;
+  border: 1px solid rgba(108,63,197,0.06);
+}
+.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 2px solid var(--purple-bg); }
+.card-title { font-size: 15px; font-weight: 700; color: var(--purple-dark); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.card-title .icon { width: 30px; height: 30px; background: linear-gradient(135deg, var(--purple-bg2), var(--purple-pale)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+.page-section { display: none; }
+.page-section.active { display: block; }
+/* 国家选择 */
+.country-selector { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+.country-btn { padding: 7px 18px; border-radius: 20px; border: 1.5px solid var(--border); background: white; color: var(--text2); cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; }
+.country-btn:hover { border-color: var(--purple-main); color: var(--purple-main); }
+.country-btn.active { background: linear-gradient(135deg, var(--purple-main), var(--purple-light)); border-color: transparent; color: white; box-shadow: 0 2px 10px rgba(108,63,197,0.3); }
+/* 场景标签 */
+.scene-tabs { display: flex; gap: 6px; margin-bottom: 20px; }
+.scene-tab { padding: 7px 18px; border-radius: 8px; border: 1.5px solid var(--border); background: white; color: var(--text2); cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s; }
+.scene-tab:hover { border-color: var(--purple-main); color: var(--purple-main); }
+.scene-tab.active { background: linear-gradient(135deg, var(--purple-main), var(--purple-light)); border-color: transparent; color: white; }
+/* 价格配置 */
+.price-section-title { font-size: 14px; font-weight: 700; color: var(--purple-dark); margin: 20px 0 12px; padding-left: 10px; border-left: 3px solid var(--purple-main); }
+.price-tier-table { width: 100%; border-collapse: collapse; font-size: 13px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
+.price-tier-table th { background: linear-gradient(135deg, var(--purple-bg2), var(--purple-pale)); color: var(--purple-dark); padding: 10px 12px; text-align: left; font-weight: 600; font-size: 12px; }
+.price-tier-table td { padding: 9px 12px; border-bottom: 1px solid #f0e8ff; color: var(--text); }
+.price-tier-table tr:last-child td { border-bottom: none; }
+.price-tier-table tr:hover td { background: var(--purple-bg); }
+.price-tier-table input[type="number"] { width: 80px; padding: 5px 8px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 13px; font-weight: 600; color: var(--purple-dark); background: white; }
+.price-tier-table input[type="number"]:focus { outline: none; border-color: var(--purple-main); box-shadow: 0 0 0 2px rgba(108,63,197,0.1); }
+.price-config-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+.price-config-item { background: var(--purple-bg); border-radius: 12px; padding: 14px; border: 1px solid rgba(108,63,197,0.08); }
+.price-config-label { font-size: 12px; color: var(--text2); margin-bottom: 8px; font-weight: 500; }
+.price-config-value { display: flex; align-items: center; gap: 4px; }
+.price-input { width: 100%; padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 14px; font-weight: 600; color: var(--purple-dark); background: white; transition: all 0.2s; }
+.price-input:focus { outline: none; border-color: var(--purple-main); box-shadow: 0 0 0 3px rgba(108,63,197,0.08); }
+.price-unit { font-size: 12px; color: var(--gray); white-space: nowrap; }
+/* 徽章 */
+.badge { display: inline-block; padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.badge-shareholder { background: var(--purple-bg2); color: var(--purple-main); }
+.badge-public { background: #f0fdf4; color: #16a34a; }
+.badge-warning { background: #fffbeb; color: #d97706; }
+.badge-error { background: #fef2f2; color: var(--error); }
+.badge-info { background: var(--purple-bg); color: var(--purple-main); }
+/* 按钮 */
+.btn { padding: 9px 22px; border-radius: 10px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+.btn-primary { background: linear-gradient(135deg, var(--purple-main), var(--purple-light)); color: white; box-shadow: 0 2px 10px rgba(108,63,197,0.25); }
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(108,63,197,0.35); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.btn-outline { background: white; border: 1.5px solid var(--purple-main); color: var(--purple-main); }
+.btn-outline:hover { background: var(--purple-bg); }
+.btn-sm { padding: 5px 14px; font-size: 12px; border-radius: 7px; }
+/* 上传 */
+.upload-zone { border: 2px dashed var(--border); border-radius: 12px; padding: 36px 24px; text-align: center; cursor: pointer; transition: all 0.25s; background: var(--purple-bg); margin-bottom: 16px; }
+.upload-zone:hover, .upload-zone.dragover { border-color: var(--purple-main); background: var(--purple-bg2); box-shadow: 0 0 0 3px rgba(108,63,197,0.08); }
+.upload-icon { font-size: 36px; margin-bottom: 10px; }
+.upload-text { font-size: 14px; color: var(--text2); margin-bottom: 4px; }
+.upload-hint { font-size: 12px; color: var(--gray); }
+/* 数据表格 */
+.data-table-container { overflow-x: auto; border-radius: 12px; border: 1px solid var(--border); }
+.data-table { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
+.data-table th { background: linear-gradient(135deg, var(--purple-bg2), var(--purple-pale)); color: var(--purple-dark); padding: 10px 12px; font-weight: 600; font-size: 12px; }
+.data-table td { padding: 8px 12px; border-bottom: 1px solid #f0e8ff; color: var(--text); }
+.data-table tr:hover td { background: var(--purple-bg); }
+.data-table .col-new { background: #faf5ff !important; font-weight: 600; color: #7c3aed; }
+.data-table .col-new-header { background: var(--purple-pale) !important; color: var(--purple-dark); }
+.data-table tr.row-duplicate td { background: #fef2f2 !important; }
+.data-table tr.row-zero td { background: #fffbeb !important; }
+.data-table tr.row-warning td { background: #fffbeb !important; }
+.total-row td { font-weight: 700; background: linear-gradient(135deg, var(--purple-bg2), var(--purple-pale)) !important; color: var(--purple-dark) !important; font-size: 13px; }
+/* 统计卡片 */
+.stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 20px; }
+.stat-card { background: white; border-radius: 14px; padding: 16px 18px; border: 1px solid rgba(108,63,197,0.08); display: flex; align-items: center; gap: 14px; box-shadow: 0 1px 4px rgba(30,10,74,0.04); }
+.stat-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+.stat-icon.purple { background: linear-gradient(135deg, var(--purple-bg2), var(--purple-pale)); }
+.stat-icon.green { background: #f0fdf4; }
+.stat-icon.blue { background: var(--purple-bg); }
+.stat-icon.orange { background: #fffbeb; }
+.stat-value { font-size: 20px; font-weight: 800; color: var(--purple-dark); line-height: 1; margin-bottom: 4px; }
+.stat-label { font-size: 12px; color: var(--gray); }
+/* SKU 警告 */
+.sku-warning-box { background: linear-gradient(135deg, #fef3c7, #fde68a); border: 1.5px solid #fbbf24; border-radius: 12px; padding: 14px 18px; margin: 12px 0; }
+.sku-warning-title { font-size: 13px; font-weight: 700; color: #92400e; margin-bottom: 8px; }
+.sku-chips { display: flex; flex-wrap: wrap; gap: 5px; max-height: 120px; overflow-y: auto; }
+.sku-chip { padding: 3px 10px; background: #f59e0b; color: white; border-radius: 10px; font-size: 11px; font-weight: 500; }
+/* 滚动条 */
+.table-scroll { max-height: 520px; overflow-y: auto; }
+.table-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+.table-scroll::-webkit-scrollbar-track { background: transparent; }
+.table-scroll::-webkit-scrollbar-thumb { background: var(--purple-pale); border-radius: 3px; }
+/* Toast */
+.toast-container { position: fixed; top: 72px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+.toast { padding: 10px 18px; border-radius: 10px; font-size: 13px; font-weight: 500; color: white; box-shadow: 0 4px 16px rgba(0,0,0,0.15); animation: slideIn 0.3s ease; display: flex; align-items: center; gap: 8px; min-width: 200px; }
+.toast.success { background: linear-gradient(135deg,#7c3aed,#6d28d9); }
+.toast.error { background: linear-gradient(135deg,#ef4444,#dc2626); }
+.toast.warning { background: linear-gradient(135deg,#f59e0b,#d97706); }
+.toast.info { background: linear-gradient(135deg,var(--purple-main),var(--purple-dark)); }
+@keyframes slideIn { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
+/* 保存栏 */
+.save-bar { position: fixed; bottom: 0; left: 0; right: 0; background: linear-gradient(135deg,#1e0a4a,#2d1b69); padding: 12px 24px; display: flex; align-items: center; justify-content: flex-end; gap: 12px; z-index: 50; border-top: 1px solid rgba(155,110,232,0.2); box-shadow: 0 -2px 16px rgba(30,10,74,0.3); }
+.save-bar-text { font-size: 13px; color: rgba(255,255,255,0.75); flex: 1; }
+.three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+@media(max-width:900px){ .stats-grid{grid-template-columns:repeat(2,1fr)} .three-col{grid-template-columns:1fr} }
+
+/* ================== 账单汇总页面专用样式 ================== */
+.summary-hero {
+  background: linear-gradient(135deg, #2d1b69 0%, #4c1d95 50%, #5b21b6 100%);
+  border-radius: 18px;
+  padding: 28px 32px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 4px 24px rgba(45,27,105,0.25);
+  border: 1px solid rgba(167,139,250,0.15);
+  position: relative;
+  overflow: hidden;
+}
+.summary-hero::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -10%;
+  width: 280px;
+  height: 280px;
+  background: radial-gradient(circle, rgba(167,139,250,0.12), transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.summary-hero-inner { display: flex; align-items: center; gap: 16px; position: relative; z-index: 1; }
+.summary-hero-icon {
+  width: 50px; height: 50px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px;
+  border: 1px solid rgba(255,255,255,0.12);
+}
+.summary-hero-title { font-size: 22px; font-weight: 800; color: white; letter-spacing: 0.5px; margin-bottom: 2px; }
+.summary-hero-desc { font-size: 12px; color: rgba(255,255,255,0.6); }
+.summary-batch-btn {
+  background: rgba(255,255,255,0.12) !important;
+  color: white !important;
+  border: 1px solid rgba(255,255,255,0.2) !important;
+  font-size: 13px !important;
+  padding: 7px 18px !important;
+  border-radius: 10px !important;
+  font-weight: 600 !important;
+  cursor: pointer;
+  transition: all 0.25s;
+}
+.summary-batch-btn:hover { background: rgba(255,255,255,0.2) !important; }
+.summary-batch-btn:disabled { opacity: 0.4 !important; cursor: not-allowed !important; }
+.summary-config-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr 1fr;
+  gap: 14px;
+}
+.summary-config-card {
+  background: var(--purple-bg);
+  border: 1px solid rgba(108,63,197,0.06);
+  border-radius: 12px;
+  padding: 14px;
+  transition: all 0.2s;
+}
+.summary-config-card:hover { border-color: rgba(108,63,197,0.15); }
+.summary-config-label { font-size: 12px; font-weight: 600; color: var(--purple-dark); margin-bottom: 4px; }
+.summary-upload-zone {
+  padding: 14px !important;
+  border: 2px dashed var(--border) !important;
+  background: white !important;
+  border-radius: 10px !important;
+}
+.summary-upload-zone:hover, .summary-upload-zone.dragover {
+  border-color: var(--purple-main) !important;
+  background: var(--purple-bg) !important;
+}
+.summary-generate-btn {
+  background: linear-gradient(135deg, #6c3fc5, #8b5cf6) !important;
+  color: white !important;
+  box-shadow: 0 4px 16px rgba(108,63,197,0.3);
+  font-weight: 700 !important;
+  transition: all 0.25s;
+}
+.summary-generate-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(108,63,197,0.4);
+  background: linear-gradient(135deg, #5b21b6, #7c3aed) !important;
+}
+.summary-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+.summary-stat-card {
+  border-radius: 14px;
+  padding: 20px 18px;
+  color: white;
+  box-shadow: 0 4px 16px rgba(109,40,217,0.2);
+  transition: all 0.25s;
+  position: relative;
+  overflow: hidden;
+}
+.summary-stat-card::before {
+  content: '';
+  position: absolute;
+  top: -20px;
+  right: -20px;
+  width: 70px;
+  height: 70px;
+  background: rgba(255,255,255,0.07);
+  border-radius: 50%;
+}
+.summary-stat-card:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(109,40,217,0.3); }
+.summary-stat-emoji { font-size: 22px; margin-bottom: 8px; }
+.summary-stat-value { font-size: 22px; font-weight: 800; line-height: 1; margin-bottom: 4px; }
+.summary-stat-label { font-size: 11px; opacity: 0.8; font-weight: 500; }
+
+@media(max-width:1000px){ .summary-config-grid{grid-template-columns:1fr 1fr} .summary-stats-grid{grid-template-columns:repeat(2,1fr)} .summary-hero{flex-direction:column;gap:14px;text-align:center} }
+@media(max-width:600px){ .summary-config-grid{grid-template-columns:1fr} .summary-stats-grid{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+
+<!-- 顶部导航 -->
+<nav class="top-nav">
+  <div class="nav-logo">
+    <div class="logo-icon">🌏</div>
+    <div class="logo-text">东南亚海外仓计费系统</div>
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="switchPage('config',this)">⚙️ 价格配置</button>
+    <button class="nav-tab" onclick="switchPage('inbound',this)">📦 入库计费</button>
+    <button class="nav-tab" onclick="switchPage('outbound',this)">🚚 出库计费</button>
+    <button class="nav-tab" onclick="switchPage('return',this)">↩️ 退货计费</button>
+    <button class="nav-tab" onclick="switchPage('summary',this)">📊 账单汇总</button>
+  </div>
+  <div class="nav-right">
+    <div class="price-type-switch">
+      <button class="price-type-btn active" id="btnShareholder" onclick="setPriceType('shareholder')">股东价</button>
+      <button class="price-type-btn" id="btnPublic" onclick="setPriceType('public')">客户价</button>
+    </div>
+  </div>
+</nav>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<div class="main-container">
+
+<!-- ================== 价格配置页 ================== -->
+<div class="page-section active" id="page-config">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <div class="icon">⚙️</div>
+        东南亚海外仓计费价格配置
+        <span class="badge badge-info" id="currentPriceTypeLabel">当前：股东价</span>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline btn-sm" onclick="resetPrices()">🔄 恢复默认</button>
+        <button class="btn btn-primary btn-sm" onclick="savePrices()">💾 保存配置</button>
+      </div>
+    </div>
+
+    <!-- 五国选择（去掉新加坡，加越南） -->
+    <div class="country-selector" id="configCountrySelector">
+      <button class="country-btn active" onclick="selectConfigCountry(this,'TH')">🇹🇭 泰国</button>
+      <button class="country-btn" onclick="selectConfigCountry(this,'MY')">🇲🇾 马来西亚</button>
+      <button class="country-btn" onclick="selectConfigCountry(this,'VN')">🇻🇳 越南</button>
+      <button class="country-btn" onclick="selectConfigCountry(this,'PH')">🇵🇭 菲律宾</button>
+      <button class="country-btn" onclick="selectConfigCountry(this,'ID')">🇮🇩 印度尼西亚</button>
+    </div>
+
+    <div class="scene-tabs">
+      <button class="scene-tab active" onclick="selectConfigScene(this,'inbound')">📦 入库</button>
+      <button class="scene-tab" onclick="selectConfigScene(this,'outbound')">🚚 出库</button>
+      <button class="scene-tab" onclick="selectConfigScene(this,'return')">↩️ 退货</button>
+    </div>
+
+    <!-- 入库配置 -->
+    <div id="config-inbound">
+      <p class="price-section-title">📦 入库基础尺寸处理费（按 SKU 三边之和分档）</p>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:12px">收费合计 = 计费单价（元/件）× 上架数量（已上数量）</p>
+      <table class="price-tier-table">
+        <thead><tr><th>档位</th><th>三边和范围</th><th>公开价（元/件）</th><th>股东价（元/件）</th></tr></thead>
+        <tbody>
+          <tr><td>小件</td><td>≤ 55 cm</td>
+            <td><input type="number" step="0.01" id="ib_pub_1" value="0.20" onchange="markDirty()"></td>
+            <td><input type="number" step="0.01" id="ib_sha_1" value="0.16" onchange="markDirty()"></td></tr>
+          <tr><td>中件</td><td>55 cm ＜ x ≤ 130 cm</td>
+            <td><input type="number" step="0.01" id="ib_pub_2" value="0.40" onchange="markDirty()"></td>
+            <td><input type="number" step="0.01" id="ib_sha_2" value="0.32" onchange="markDirty()"></td></tr>
+          <tr><td>大件</td><td>130 cm ＜ x ≤ 200 cm</td>
+            <td><input type="number" step="0.01" id="ib_pub_3" value="0.90" onchange="markDirty()"></td>
+            <td><input type="number" step="0.01" id="ib_sha_3" value="0.72" onchange="markDirty()"></td></tr>
+          <tr><td>超大件</td><td>＞ 200 cm</td>
+            <td><input type="number" step="0.01" id="ib_pub_4" value="1.70" onchange="markDirty()"></td>
+            <td><input type="number" step="0.01" id="ib_sha_4" value="1.36" onchange="markDirty()"></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 出库配置 -->
+    <div id="config-outbound" style="display:none">
+      <p class="price-section-title">🚚 出库首件费（按计费重量 + 单边尺寸分档）</p>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:12px">
+        计费重量 = max(实际重量kg, 体积重kg)，重量原始单位为克需 ÷1000 换算为kg；体积重 = 长×宽×高÷6000(kg)<br>
+        <strong>同订单（关联单号）多SKU合并计费：</strong>按出库数量合计，≤4件只收1件首件费（取最重SKU档位）；＞4件收1件首件+免3件，第5件起按各SKU各自档位×出库数量叠加续件费
+      </p>
+      <table class="price-tier-table">
+        <thead><tr><th>档位</th><th>计费重量</th><th>单边限制</th><th>公开价（元/件）</th><th>股东价（元/件）</th></tr></thead>
+        <tbody>
+          <tr><td>超轻件</td><td>0 ＜ x ≤ 0.05 kg</td><td>≤ 15 cm</td>
+            <td><input type="number" step="0.01" id="ob_first_pub_1" value="2.00" onchange="markDirty()"></td>
+            <td><input type="number" step="0.01" id="ob_first_sha_1" value="1.60" onchange="markDirty()"></td></tr>
+          <tr><td>轻件</td><td>0.05 ~ 1 kg</td><td>≤ 25 cm</td>
+            <td><input type="number" step="0.01" id="ob_first_pub_2" value="2.50" onchange="markDirty()"></td>
+            <td><input type="number" step="0.01" id="ob_first_sha_2" value="2.00" onchange="markDirty()"></td></tr>
+          <tr><td>中件</td><td>1 ~ 3 kg</td><td>≤ 50 cm</td>
+            <td><input type="number" step="0.01" id="ob_first_pub_3" value="3.00" onchange="markDirty()"></td>
+            <td><input type="number" step="0.01" id="ob_first_sha_3" value="2.40" onchange="markDirty()"></td></tr>
+          <tr><td>重件</td><td>3 ~ 10 kg</td><td>≤ 500 cm</td>
+            <td><input type="number" step="0.01" id="ob_first_pub_4" value="4.50" onchange="markDirty()"></td>
+            <td><input type="number" step="0.01" id="ob_first_sha_4" value="3.60" onchange="markDirty()"></td></tr>
+        </tbody>
+      </table>
+      <p class="price-section-title">🔁 出库续件费（订单内第5件起）</p>
+      <table class="price-tier-table">
+        <thead><tr><th>对应首件档位</th><th>公开价（元/件）</th><th>股东价（元/件）</th></tr></thead>
+        <tbody>
+          <tr><td>超轻件 / 轻件（≤1kg）</td>
+            <td><input type="number" step="0.01" id="ob_cont_pub_1" value="0.50" onchange="markDirty()"></td>
+            <td><input type="number" step="0.01" id="ob_cont_sha_1" value="0.50" onchange="markDirty()"></td></tr>
+          <tr><td>中件（1~3kg）</td>
+            <td><input type="number" step="0.01" id="ob_cont_pub_2" value="0.70" onchange="markDirty()"></td>
+            <td><input type="number" step="0.01" id="ob_cont_sha_2" value="0.70" onchange="markDirty()"></td></tr>
+          <tr><td>重件（3~10kg）</td>
+            <td><input type="number" step="0.01" id="ob_cont_pub_3" value="0.90" onchange="markDirty()"></td>
+            <td><input type="number" step="0.01" id="ob_cont_sha_3" value="0.90" onchange="markDirty()"></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 退货配置 -->
+    <div id="config-return" style="display:none">
+      <p class="price-section-title">↩️ 退件入库费（固定费，每单收一次）</p>
+      <div class="price-config-grid">
+        <div class="price-config-item">
+          <div class="price-config-label">退件入库费（固定/单）</div>
+          <div class="price-config-value">
+            <input type="number" class="price-input" id="ret_inbound_fee" value="2.00" onchange="markDirty()">
+            <span class="price-unit">元/单</span>
+          </div>
+        </div>
+      </div>
+      <p class="price-section-title">📐 退件上架费（与入库费同规则）收费合计 = 计费单价 × 上架量（已上数量）</p>
+      <table class="price-tier-table">
+        <thead><tr><th>档位</th><th>三边和范围</th><th>公开价（元/件）</th><th>股东价（元/件）</th></tr></thead>
+        <tbody>
+          <tr><td>小件</td><td>≤ 55 cm</td>
+            <td><input type="number" step="0.01" id="ret_pub_1" value="0.20" onchange="markDirty()"></td>
+            <td><input type="number" step="0.01" id="ret_sha_1" value="0.16" onchange="markDirty()"></td></tr>
+          <tr><td>中件</td><td>55 cm ＜ x ≤ 130 cm</td>
+            <td><input type="number" step="0.01" id="ret_pub_2" value="0.40" onchange="markDirty()"></td>
+            <td><input type="number" step="0.01" id="ret_sha_2" value="0.32" onchange="markDirty()"></td></tr>
+          <tr><td>大件</td><td>130 cm ＜ x ≤ 200 cm</td>
+            <td><input type="number" step="0.01" id="ret_pub_3" value="0.90" onchange="markDirty()"></td>
+            <td><input type="number" step="0.01" id="ret_sha_3" value="0.72" onchange="markDirty()"></td></tr>
+          <tr><td>超大件</td><td>＞ 200 cm</td>
+            <td><input type="number" step="0.01" id="ret_pub_4" value="1.70" onchange="markDirty()"></td>
+            <td><input type="number" step="0.01" id="ret_sha_4" value="1.36" onchange="markDirty()"></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 规则说明 -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><div class="icon">📋</div>计费规则快速参考</div>
+    </div>
+    <div class="three-col">
+      <div>
+        <p class="price-section-title">📦 入库计费</p>
+        <ul style="font-size:13px;color:var(--text2);line-height:1.9;padding-left:16px">
+          <li>三边和分4档：≤55 / ≤130 / ≤200 / >200cm</li>
+          <li><strong>收费合计 = 计费单价 × 上架量（已上数量）</strong></li>
+          <li>例：单价 0.16 × 上架量 50 = <strong>¥8.00</strong></li>
+          <li>三边和=0 → 计费0并提醒补充尺寸</li>
+          <li>西之月跨境 → 股东价；其余 → 公开价</li>
+        </ul>
+      </div>
+      <div>
+        <p class="price-section-title">🚚 出库计费</p>
+        <ul style="font-size:13px;color:var(--text2);line-height:1.9;padding-left:16px">
+          <li>计费重量 = max(实重kg, 体积重kg)</li>
+          <li>体积重 = 长×宽×高 ÷ 6000；重量(g) ÷ 1000 = 实重(kg)</li>
+          <li><strong>同订单（关联单号）多SKU合并计费</strong>：按出库数量合计</li>
+          <li>≤4件：只收1件首件费（取最重SKU的档位），其余免</li>
+          <li>＞4件：1件首件 + 免3件，第5件起按各SKU各自重量档位 × 出库数量叠加续件费</li>
+          <li>续件费档位：≤1kg→¥0.50；1~3kg→¥0.70；3~10kg→¥0.90</li>
+          <li>超尺寸自动递归升档（兼顾重量+单边限制）</li>
+          <li>通过关联单号/订单编号匹配子表（订单信息）补全SKU尺寸重量</li>
+          <li>订单号无匹配时自动用SKU在子表搜索；SKU含"*"后缀自动去掉再匹配</li>
+          <li>缺尺寸→仅实重计费；缺重量→仅体积重；二者均缺→最低档</li>
+          <li>数量不一致时底部显示异常提醒表格</li>
+          <li>西之月跨境 → 股东价；其余 → 公开价</li>
+        </ul>
+      </div>
+      <div>
+        <p class="price-section-title">↩️ 退货计费</p>
+        <ul style="font-size:13px;color:var(--text2);line-height:1.9;padding-left:16px">
+          <li>退件入库费：固定 <strong>2.00元/单</strong>，同订单/关联单号只收1次</li>
+          <li>退件上架费 = 计费单价 × 上架量，档位与入库费同规则</li>
+          <li>重复计费行 → 红色标注</li>
+          <li>西之月跨境 → 股东价；其余 → 公开价</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================== 入库计费页 ================== -->
+<div class="page-section" id="page-inbound">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><div class="icon">📦</div>入库计费核算
+        <span style="font-size:12px;color:var(--text2);font-weight:400">收费合计 = 计费单价 × 上架数量</span>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline btn-sm" onclick="clearResult('inbound')">🗑️ 清除</button>
+        <button class="btn btn-primary btn-sm" id="exportInboundBtn" onclick="exportResult('inbound')" disabled>📥 导出结果</button>
+      </div>
+    </div>
+    <div class="upload-zone" id="inboundUploadZone"
+         onclick="document.getElementById('inboundFileInput').click()"
+         ondragover="event.preventDefault();this.classList.add('dragover')"
+         ondragleave="this.classList.remove('dragover')"
+         ondrop="handleDrop(event,'inbound')">
+      <div class="upload-icon">📂</div>
+      <div class="upload-text">点击或拖拽上传入库账单 Excel 文件</div>
+      <div class="upload-hint">支持 .xlsx / .xls，自动识别入库工作表</div>
+    </div>
+    <input type="file" id="inboundFileInput" accept=".xlsx,.xls" style="display:none" onchange="handleFileSelect(event,'inbound')">
+    <div id="inboundSkuWarning"></div>
+    <div class="stats-grid" id="inboundStats" style="display:none">
+      <div class="stat-card"><div class="stat-icon purple">📦</div><div><div class="stat-value" id="inboundTotalRows">0</div><div class="stat-label">总行数</div></div></div>
+      <div class="stat-card"><div class="stat-icon green">💰</div><div><div class="stat-value" id="inboundTotalFee">¥0.00</div><div class="stat-label">收费合计（元）</div></div></div>
+      <div class="stat-card"><div class="stat-icon orange">⚠️</div><div><div class="stat-value" id="inboundZeroRows">0</div><div class="stat-label">三边和缺失行数</div></div></div>
+      <div class="stat-card"><div class="stat-icon red">🏷️</div><div><div class="stat-value" id="inboundMissSku">0</div><div class="stat-label">缺失尺寸SKU数</div></div></div>
+    </div>
+    <div id="inboundResultArea" style="display:none">
+      <div class="data-table-container table-scroll"><table class="data-table" id="inboundResultTable"></table></div>
+    </div>
+  </div>
+</div>
+
+<!-- ================== 出库计费页 ================== -->
+<div class="page-section" id="page-outbound">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><div class="icon">🚚</div>出库计费核算
+        <span style="font-size:12px;color:var(--text2);font-weight:400">计费重量=max(实重g÷1000, 长×宽×高÷6000) kg</span>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline btn-sm" onclick="clearResult('outbound')">🗑️ 清除</button>
+        <button class="btn btn-primary btn-sm" id="exportOutboundBtn" onclick="exportResult('outbound')" disabled>📥 导出结果</button>
+      </div>
+    </div>
+    <div class="upload-zone" id="outboundUploadZone"
+         onclick="document.getElementById('outboundFileInput').click()"
+         ondragover="event.preventDefault();this.classList.add('dragover')"
+         ondragleave="this.classList.remove('dragover')"
+         ondrop="handleDrop(event,'outbound')">
+      <div class="upload-icon">📂</div>
+      <div class="upload-text">点击或拖拽上传出库账单 Excel 文件</div>
+      <div class="upload-hint">支持 .xlsx / .xls，自动识别出库工作表</div>
+    </div>
+    <input type="file" id="outboundFileInput" accept=".xlsx,.xls" style="display:none" onchange="handleFileSelect(event,'outbound')">
+    <div id="outboundSkuWarning"></div>
+    <div class="stats-grid" id="outboundStats" style="display:none">
+      <div class="stat-card"><div class="stat-icon purple">🚚</div><div><div class="stat-value" id="outboundTotalRows">0</div><div class="stat-label">总行数</div></div></div>
+      <div class="stat-card"><div class="stat-icon green">💰</div><div><div class="stat-value" id="outboundTotalFee">¥0.00</div><div class="stat-label">收费合计（元）</div></div></div>
+      <div class="stat-card"><div class="stat-icon orange">📦</div><div><div class="stat-value" id="outboundFirstFee">¥0.00</div><div class="stat-label">首件费合计</div></div></div>
+      <div class="stat-card"><div class="stat-icon red">🔁</div><div><div class="stat-value" id="outboundContFee">¥0.00</div><div class="stat-label">续件费合计</div></div></div>
+    </div>
+    <div id="outboundResultArea" style="display:none">
+      <div class="data-table-container table-scroll"><table class="data-table" id="outboundResultTable"></table></div>
+    </div>
+    <!-- ★ 数量不一致异常提醒区域 -->
+    <div id="outboundMismatchArea" style="display:none;padding:0 0 12px"></div>
+  </div>
+</div>
+
+<!-- ================== 退货计费页 ================== -->
+<div class="page-section" id="page-return">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><div class="icon">↩️</div>退货计费核算</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline btn-sm" onclick="clearResult('return')">🗑️ 清除</button>
+        <button class="btn btn-primary btn-sm" id="exportReturnBtn" onclick="exportResult('return')" disabled>📥 导出结果</button>
+      </div>
+    </div>
+    <div class="upload-zone" id="returnUploadZone"
+         onclick="document.getElementById('returnFileInput').click()"
+         ondragover="event.preventDefault();this.classList.add('dragover')"
+         ondragleave="this.classList.remove('dragover')"
+         ondrop="handleDrop(event,'return')">
+      <div class="upload-icon">📂</div>
+      <div class="upload-text">点击或拖拽上传退货账单 Excel 文件</div>
+      <div class="upload-hint">自动识别含"退货/退件"的工作表</div>
+    </div>
+    <input type="file" id="returnFileInput" accept=".xlsx,.xls" style="display:none" onchange="handleFileSelect(event,'return')">
+    <div id="returnSkuWarning"></div>
+    <div class="stats-grid" id="returnStats" style="display:none">
+      <div class="stat-card"><div class="stat-icon purple">↩️</div><div><div class="stat-value" id="returnTotalRows">0</div><div class="stat-label">总行数</div></div></div>
+      <div class="stat-card"><div class="stat-icon green">💰</div><div><div class="stat-value" id="returnTotalFee">¥0.00</div><div class="stat-label">收费合计（元）</div></div></div>
+      <div class="stat-card"><div class="stat-icon orange">📥</div><div><div class="stat-value" id="returnInboundFee">¥0.00</div><div class="stat-label">退件入库费合计</div></div></div>
+      <div class="stat-card"><div class="stat-icon red">⚠️</div><div><div class="stat-value" id="returnDupRows">0</div><div class="stat-label">重复计费记录</div></div></div>
+    </div>
+    <div id="returnResultArea" style="display:none">
+      <div class="data-table-container table-scroll"><table class="data-table" id="returnResultTable"></table></div>
+    </div>
+  </div>
+</div>
+
+<!-- ================== 账单汇总页 ================== -->
+<div class="page-section" id="page-summary">
+
+  <!-- 顶部标题区 -->
+  <div class="summary-hero">
+    <div class="summary-hero-inner">
+      <div class="summary-hero-icon">📊</div>
+      <div>
+        <div class="summary-hero-title">账单汇总中心</div>
+        <div class="summary-hero-desc">按客户自动归类汇总入库、出库、退货费用，一键生成独立对账单</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-sm summary-batch-btn" onclick="clearSummary()">🗑️ 清除</button>
+      <button class="btn btn-sm summary-batch-btn" id="exportSummaryBtn" onclick="exportSummaryExcel()" disabled>📥 批量下载</button>
+    </div>
+  </div>
+
+  <div class="card" style="border:1px solid rgba(108,63,197,0.06)">
+    <div class="card-header">
+      <div class="card-title"><div class="icon">⚙️</div>汇总配置</div>
+    </div>
+    <div class="summary-config-grid">
+      <div class="summary-config-card">
+        <div class="summary-config-label">📄 汇总模板（可选）</div>
+        <div class="upload-zone summary-upload-zone" id="summaryTemplateZone"
+             onclick="document.getElementById('summaryTemplateInput').click()"
+             ondragover="event.preventDefault();this.classList.add('dragover')"
+             ondragleave="this.classList.remove('dragover')"
+             ondrop="handleDropSummary(event)">
+          <div class="upload-icon" style="font-size:24px;margin-bottom:6px">📄</div>
+          <div class="upload-text" style="font-size:12px">点击或拖拽上传</div>
+          <div class="upload-hint">不上传则使用默认模板</div>
+        </div>
+        <input type="file" id="summaryTemplateInput" accept=".xlsx,.xls" style="display:none" onchange="handleSummaryTemplate(event)">
+        <div id="summaryTemplateInfo" style="display:none;margin-top:8px;padding:6px 10px;background:var(--purple-bg);border-radius:6px;font-size:11px;color:var(--purple-dark)">
+          ✅ <span id="summaryTemplateName"></span>
+        </div>
+      </div>
+      <div class="summary-config-card">
+        <div class="summary-config-label">📅 费用周期</div>
+        <input type="text" id="summaryPeriod" class="price-input" placeholder="如：2026/02/01-2026/02/28" style="width:100%;margin-top:10px">
+      </div>
+      <div class="summary-config-card">
+        <div class="summary-config-label">🏢 仓库/国家</div>
+        <input type="text" id="summaryWarehouse" class="price-input" placeholder="如：马来仓" style="width:100%;margin-top:10px">
+      </div>
+      <div class="summary-config-card">
+        <div class="summary-config-label">🔍 客户列索引</div>
+        <input type="text" id="summaryCustCol" class="price-input" placeholder="自动识别" style="width:100%;margin-top:10px">
+      </div>
+    </div>
+
+    <div style="margin:20px 0 0">
+      <button class="btn summary-generate-btn" onclick="generateSummary()" style="width:100%;justify-content:center;font-size:15px;padding:12px;border-radius:12px">
+        🔮 生成账单汇总
+      </button>
+    </div>
+  </div>
+
+  <!-- 统计卡片 -->
+  <div id="summaryStats" style="display:none;margin-top:20px">
+    <div class="summary-stats-grid">
+      <div class="summary-stat-card" style="background:linear-gradient(135deg,#7c3aed,#6d28d9)">
+        <div class="summary-stat-emoji">👥</div>
+        <div class="summary-stat-value" id="summaryCustCount">0</div>
+        <div class="summary-stat-label">客户数量</div>
+      </div>
+      <div class="summary-stat-card" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed)">
+        <div class="summary-stat-emoji">📦</div>
+        <div class="summary-stat-value" id="summaryInboundTotal">¥0.00</div>
+        <div class="summary-stat-label">入库费用合计</div>
+      </div>
+      <div class="summary-stat-card" style="background:linear-gradient(135deg,#a78bfa,#8b5cf6)">
+        <div class="summary-stat-emoji">🚚</div>
+        <div class="summary-stat-value" id="summaryOutboundTotal">¥0.00</div>
+        <div class="summary-stat-label">出库费用合计</div>
+      </div>
+      <div class="summary-stat-card" style="background:linear-gradient(135deg,#c084fc,#a78bfa)">
+        <div class="summary-stat-emoji">↩️</div>
+        <div class="summary-stat-value" id="summaryReturnTotal">¥0.00</div>
+        <div class="summary-stat-label">退货费用合计</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 结果表格 -->
+  <div id="summaryResultArea" style="display:none;margin-top:20px">
+    <div class="card" style="border:1px solid rgba(108,63,197,0.06)">
+      <div class="card-header">
+        <div class="card-title"><div class="icon">📋</div>客户费用汇总明细</div>
+        <button class="btn btn-sm summary-batch-btn" onclick="exportSummaryExcel()">📥 批量下载全部</button>
+      </div>
+      <div class="data-table-container table-scroll" style="max-height:600px"><table class="data-table" id="summaryResultTable"></table></div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /main-container -->
+
+<!-- 底部保存栏 -->
+<div class="save-bar" id="saveBar" style="display:none">
+  <span class="save-bar-text">⚡ 价格配置已修改，记得保存</span>
+  <button class="btn btn-sm" style="color:white;border:1.5px solid rgba(255,255,255,0.5);background:transparent" onclick="savePrices()">💾 保存</button>
+</div>
+
+<script>
+// ============================================================
+//  全局状态
+// ============================================================
+let currentPriceType = 'shareholder';
+let currentConfigCountry = 'TH';
+let currentConfigScene = 'inbound';
+let configDirty = false;
+const resultData = { inbound: null, outbound: null, return: null };
+let skuDimDB = {}; // { skuCode: { l, w, h, weightKg } }
+// 订单→SKU明细映射：orderSkuDB[orderId] = [ {sku, qty, l, w, h, weightKg}, ... ]
+let orderSkuDB = {};
+
+// ============================================================
+//  默认价格
+// ============================================================
+const DEFAULT_PRICES = {
+  inbound: { public: [0.20,0.40,0.90,1.70], shareholder: [0.16,0.32,0.72,1.36] },
+  outbound: {
+    first: { public: [2.00,2.50,3.00,4.50], shareholder: [1.60,2.00,2.40,3.60] },
+    cont:  { public: [0.50,0.70,0.90],      shareholder: [0.50,0.70,0.90] }
+  },
+  return: {
+    inboundFee: 2.00,
+    shelf: { public: [0.20,0.40,0.90,1.70], shareholder: [0.16,0.32,0.72,1.36] }
+  }
+};
+
+// ============================================================
+//  从 DOM 读取当前价格
+// ============================================================
+function getPrices() {
+  return {
+    inbound: {
+      public:      [gv('ib_pub_1'),gv('ib_pub_2'),gv('ib_pub_3'),gv('ib_pub_4')],
+      shareholder: [gv('ib_sha_1'),gv('ib_sha_2'),gv('ib_sha_3'),gv('ib_sha_4')]
+    },
+    outbound: {
+      first: {
+        public:      [gv('ob_first_pub_1'),gv('ob_first_pub_2'),gv('ob_first_pub_3'),gv('ob_first_pub_4')],
+        shareholder: [gv('ob_first_sha_1'),gv('ob_first_sha_2'),gv('ob_first_sha_3'),gv('ob_first_sha_4')]
+      },
+      cont: {
+        public:      [gv('ob_cont_pub_1'),gv('ob_cont_pub_2'),gv('ob_cont_pub_3')],
+        shareholder: [gv('ob_cont_sha_1'),gv('ob_cont_sha_2'),gv('ob_cont_sha_3')]
+      }
+    },
+    return: {
+      inboundFee: gv('ret_inbound_fee'),
+      shelf: {
+        public:      [gv('ret_pub_1'),gv('ret_pub_2'),gv('ret_pub_3'),gv('ret_pub_4')],
+        shareholder: [gv('ret_sha_1'),gv('ret_sha_2'),gv('ret_sha_3'),gv('ret_sha_4')]
+      }
+    }
+  };
+}
+function gv(id){ const el=document.getElementById(id); return el ? +el.value : 0; }
+function sv(id,val){ const el=document.getElementById(id); if(el) el.value=val; }
+
+// ============================================================
+//  初始化：读取本地保存价格
+// ============================================================
+(function init(){
+  try{
+    const saved = localStorage.getItem('billing_prices_v2');
+    if(saved){
+      const p = JSON.parse(saved);
+      for(let i=1;i<=4;i++){
+        sv('ib_pub_'+i, p.inbound.public[i-1]);
+        sv('ib_sha_'+i, p.inbound.shareholder[i-1]);
+        sv('ret_pub_'+i, p.return.shelf.public[i-1]);
+        sv('ret_sha_'+i, p.return.shelf.shareholder[i-1]);
+        sv('ob_first_pub_'+i, p.outbound.first.public[i-1]);
+        sv('ob_first_sha_'+i, p.outbound.first.shareholder[i-1]);
+        if(i<=3){
+          sv('ob_cont_pub_'+i, p.outbound.cont.public[i-1]);
+          sv('ob_cont_sha_'+i, p.outbound.cont.shareholder[i-1]);
+        }
+      }
+      sv('ret_inbound_fee', p.return.inboundFee);
+    }
+  }catch(e){}
+})();
+
+// ============================================================
+//  UI 控制
+// ============================================================
+function switchPage(name, btn){
+  document.querySelectorAll('.page-section').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(el=>el.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  if(btn) btn.classList.add('active');
+}
+
+function setPriceType(type){
+  currentPriceType = type;
+  document.getElementById('btnShareholder').classList.toggle('active', type==='shareholder');
+  document.getElementById('btnPublic').classList.toggle('active', type==='public');
+  const label = document.getElementById('currentPriceTypeLabel');
+  label.textContent = '当前：'+(type==='shareholder'?'股东价':'客户价');
+  label.className = 'badge '+(type==='shareholder'?'badge-shareholder':'badge-public');
+  showToast(type==='shareholder'?'已切换为股东价（西之月跨境）':'已切换为公开价模式','info');
+}
+
+function selectConfigCountry(btn, code){
+  document.querySelectorAll('#configCountrySelector .country-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  currentConfigCountry = code;
+}
+
+function selectConfigScene(btn, scene){
+  document.querySelectorAll('.scene-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  currentConfigScene = scene;
+  document.getElementById('config-inbound').style.display  = scene==='inbound'  ? '':'none';
+  document.getElementById('config-outbound').style.display = scene==='outbound' ? '':'none';
+  document.getElementById('config-return').style.display   = scene==='return'   ? '':'none';
+}
+
+function markDirty(){
+  configDirty = true;
+  document.getElementById('saveBar').style.display = '';
+}
+
+function savePrices(){
+  const p = getPrices();
+  try{ localStorage.setItem('billing_prices_v2', JSON.stringify(p)); }catch(e){}
+  configDirty = false;
+  document.getElementById('saveBar').style.display = 'none';
+  showToast('价格配置已保存！','success');
+}
+
+function resetPrices(){
+  if(!confirm('确认恢复所有价格为默认值？')) return;
+  const p = DEFAULT_PRICES;
+  for(let i=1;i<=4;i++){
+    sv('ib_pub_'+i,  p.inbound.public[i-1]);
+    sv('ib_sha_'+i,  p.inbound.shareholder[i-1]);
+    sv('ret_pub_'+i, p.return.shelf.public[i-1]);
+    sv('ret_sha_'+i, p.return.shelf.shareholder[i-1]);
+    sv('ob_first_pub_'+i, p.outbound.first.public[i-1]);
+    sv('ob_first_sha_'+i, p.outbound.first.shareholder[i-1]);
+    if(i<=3){
+      sv('ob_cont_pub_'+i, p.outbound.cont.public[i-1]);
+      sv('ob_cont_sha_'+i, p.outbound.cont.shareholder[i-1]);
+    }
+  }
+  sv('ret_inbound_fee', p.return.inboundFee);
+  configDirty = false;
+  document.getElementById('saveBar').style.display = 'none';
+  showToast('已恢复默认价格配置','info');
+}
+
+// ============================================================
+//  Toast
+// ============================================================
+function showToast(msg, type='info'){
+  const c = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = 'toast '+type;
+  const icons={success:'✅',error:'❌',warning:'⚠️',info:'ℹ️'};
+  t.innerHTML = `<span>${icons[type]||'ℹ️'}</span><span>${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity 0.3s'; setTimeout(()=>t.remove(),300); },3000);
+}
+
+// ============================================================
+//  文件上传
+// ============================================================
+function handleDrop(e, scene){
+  e.preventDefault();
+  document.getElementById(scene+'UploadZone').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if(file) processFile(file, scene);
+}
+function handleFileSelect(e, scene){
+  const file = e.target.files[0];
+  if(file) processFile(file, scene);
+  e.target.value='';
+}
+function processFile(file, scene){
+  if(!file.name.match(/\.xlsx?$/i)){ showToast('请上传 Excel 文件（.xlsx/.xls）','error'); return; }
+  showToast(`正在解析 ${file.name}...`,'info');
+  const reader = new FileReader();
+  reader.onload = e2 => {
+    try{
+      const data = new Uint8Array(e2.target.result);
+      const wb = XLSX.read(data,{type:'array',cellDates:true,raw:false});
+      extractSkuDimensions(wb);
+      if(scene==='inbound')  processInbound(wb, file.name);
+      else if(scene==='outbound') processOutbound(wb, file.name);
+      else if(scene==='return')   processReturn(wb, file.name);
+    }catch(err){ showToast('文件解析失败：'+err.message,'error'); console.error(err); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ============================================================
+//  SKU 尺寸库提取 + 订单→SKU明细映射（扫描所有工作表）
+// ============================================================
+// 子表（订单信息）重量字段规则（用户指令）：
+//   - 重量/毛重 均为 g，统一 ÷1000 换算为 kg
+//   - 仅明确标注"(kg)"的列才直接当 kg 使用
+
+// ★ 辅助：清理SKU后缀（去掉"*"及以后的字符，如 ZXHWE-0119*1 → ZXHWE-0119）
+function cleanSkuSuffix(sku){
+  if(!sku) return sku;
+  const raw = String(sku).trim();
+  if(raw.includes('*')){
+    return raw.split('*')[0].trim();
+  }
+  return raw;
+}
+
+function extractSkuDimensions(wb){
+  skuDimDB   = {};
+  orderSkuDB = {};
+  wb.SheetNames.forEach(name=>{
+    const ws = wb.Sheets[name];
+    const rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+    if(rows.length<2) return;
+    const hdrs = rows[0].map(h=>String(h||'').trim().toLowerCase());
+    const skuI = fcol(hdrs,['sku','sku编码','商品编码','产品编码','货品编码']);
+    const lI   = fcol(hdrs,['长','长度','length','长(cm)','长cm']);
+    const wI   = fcol(hdrs,['宽','宽度','width','宽(cm)','宽cm']);
+    const hI   = fcol(hdrs,['高','高度','height','高(cm)','高cm']);
+
+    // ★ 重量列：明确(kg)才当kg；其余（含毛重、重量无标注）一律按g÷1000
+    const wtKgI   = fcol(hdrs,['重量(kg)','重量kg','单位重量(kg)','毛重(kg)']);
+    // 按g处理的列：明确(g)的 + 无单位的毛重/重量
+    const wtGramI = fcol(hdrs,['重量(g)','重量g','单位重量(g)','毛重(g)']);
+    // 无单位标注：毛重/重量/单位重量 → 均按g处理（÷1000）
+    const wtFallI = fcol(hdrs,['毛重','重量','单位重量','gross weight','weight']);
+
+    // ★ 订单信息表：来源单号 / 订单编号 / 关联单号 均作为匹配键
+    //   "来源单号"是子表中的实际字段名（用户指令示例：MB2602271880180）
+    const ordI  = fcol(hdrs,['来源单号','来源订单号','订单编号','订单号','关联单号','关联订单号','order_id','orderid','order id']);
+    const qtyOI = fcol(hdrs,['数量','件数','sku数量','qty','quantity']);
+
+    if(skuI===-1) return;
+    for(let i=1;i<rows.length;i++){
+      const row = rows[i];
+      let sku = String(row[skuI]||'').trim();
+      if(!sku) continue;
+      sku = cleanSkuSuffix(sku); // ★ 去掉*后缀（子表SKU也可能是 ZXHWE-0119*1 格式）
+      const l = +row[lI]||0, w = +row[wI]||0, h = +row[hI]||0;
+
+      // ★ 统一重量处理：除明确(kg)外，全部按g÷1000
+      let wtKg = 0;
+      if(wtKgI!==-1 && row[wtKgI]!=='' && row[wtKgI]!==undefined){
+        // 明确标注kg，直接使用
+        wtKg = (+row[wtKgI]||0);
+      } else if(wtGramI!==-1 && row[wtGramI]!=='' && row[wtGramI]!==undefined){
+        // 明确标注g → ÷1000
+        wtKg = (+row[wtGramI]||0) / 1000;
+      } else if(wtFallI!==-1 && row[wtFallI]!=='' && row[wtFallI]!==undefined){
+        // 无单位标注（毛重/重量）→ 按g ÷1000（用户指令：重量和毛重都为g）
+        wtKg = (+row[wtFallI]||0) / 1000;
+      }
+
+      // 更新 skuDimDB（有完整尺寸才覆盖，无完整尺寸时补缺）
+      if(!skuDimDB[sku]){
+        skuDimDB[sku] = {l,w,h,weightKg:wtKg};
+      } else if(l>0&&w>0&&h>0){
+        skuDimDB[sku].l=l; skuDimDB[sku].w=w; skuDimDB[sku].h=h;
+        if(wtKg>0) skuDimDB[sku].weightKg=wtKg;
+      } else if(wtKg>0 && !skuDimDB[sku].weightKg){
+        skuDimDB[sku].weightKg=wtKg;
+      }
+
+      // ★ 构建 orderSkuDB（需要有来源单号/订单号列）
+      if(ordI!==-1){
+        const rawOrd = String(row[ordI]||'').trim();
+        if(!rawOrd || rawOrd==='0') continue;
+        const qty = parseFloat(row[qtyOI]||0)||0;
+        const entry = {sku, qty, l, w, h, weightKg:wtKg};
+
+        function regOrder(key){
+          if(!key) return;
+          if(!orderSkuDB[key]) orderSkuDB[key]=[];
+          orderSkuDB[key].push(entry);
+        }
+        regOrder(rawOrd);
+        // 同时注册截断"-"后的版本（如 ABC-001 → ABC）
+        if(rawOrd.includes('-')) regOrder(rawOrd.split('-')[0]);
+      }
+    }
+  });
+  console.log('[SKU库]', Object.keys(skuDimDB).length, '条；[订单库]', Object.keys(orderSkuDB).length, '条');
+}
+
+function fcol(hdrs, candidates){
+  const normHdrs = hdrs.map(normalizeStr);
+  for(const c of candidates){
+    const nc = normalizeStr(c);
+    const idx = normHdrs.findIndex(h=>h.includes(nc));
+    if(idx!==-1) return idx;
+  }
+  return -1;
+}
+
+// 标准化字符串：去除空格、全角转半角、转小写，方便匹配
+function normalizeStr(s){
+  return String(s||'')
+    .replace(/\s+/g,'')                       // 去除所有空格
+    .replace(/[（）【】''""，。、：；！？]/g,'') // 去除常见中文标点
+    .replace(/[()[\]]/g,'')                   // 去除半角括号
+    .toLowerCase()
+    .replace(/[Ａ-Ｚａ-ｚ０-９]/g, c => String.fromCharCode(c.charCodeAt(0)-0xFEE0)); // 全角→半角
+}
+
+function findHeaderIdx(hdrs, candidates){
+  const normHdrs = hdrs.map(normalizeStr);
+  for(const c of candidates){
+    const nc = normalizeStr(c);
+    const idx = normHdrs.findIndex(h=>h.includes(nc));
+    if(idx!==-1) return idx;
+  }
+  return -1;
+}
+
+// ============================================================
+//  客户判断
+// ============================================================
+function isShareholder(custName){
+  return String(custName||'').includes('西之月') || currentPriceType==='shareholder';
+}
+
+// ============================================================
+//  入库：三边和→档位→单价
+// ============================================================
+// 入库档位判断
+// 档位1: 三边和≤55cm         → p[pt][0]
+// 档位2: 55cm＜x≤130cm      → p[pt][1]
+// 档位3: 130cm＜x≤200cm     → p[pt][2]
+// 档位4: 三边和＞200cm(超大) → p[pt][3]
+function getInboundUnitPrice(sum3, sha){
+  const p = getPrices().inbound;
+  const pt = sha ? 'shareholder' : 'public';
+  if(sum3<=0)   return 0;
+  if(sum3<=55)  return p[pt][0];
+  if(sum3<=130) return p[pt][1];
+  if(sum3<=200) return p[pt][2];
+  return p[pt][3];  // ＞200 超大件
+}
+
+// ============================================================
+//  出库：计费重量 + 档位（递归升档）
+// ============================================================
+/*
+  档位定义：
+  0: 超轻件  重量(0,0.05]  单边≤15
+  1: 轻件    重量(0.05,1]  单边≤25
+  2: 中件    重量(1,3]     单边≤50
+  3: 重件    重量(3,10]    单边≤500
+*/
+const OB_TIERS = [
+  {maxKg:0.05, maxEdge:15,  label:'超轻件'},
+  {maxKg:1,    maxEdge:25,  label:'轻件'},
+  {maxKg:3,    maxEdge:50,  label:'中件'},
+  {maxKg:10,   maxEdge:500, label:'重件'}
+];
+
+// 根据计费重量和最长边，递归找到满足两个条件的最低档位（用于首件费）
+function getOutboundTierIdx(chargeKg, maxEdgeCm){
+  for(let i=0;i<OB_TIERS.length;i++){
+    const t = OB_TIERS[i];
+    if(chargeKg<=t.maxKg && maxEdgeCm<=t.maxEdge) return i;
+    // 重量满足但尺寸不满足→继续升档
+    // 重量不满足→继续升档
+  }
+  return OB_TIERS.length-1; // 最高档兜底
+}
+
+// ★ 续件费档位：只按重量判断，不受最长边限制
+//   ≤0.05kg → cont[0] (¥0.50)
+//   0.05~1kg → cont[0] (¥0.50)
+//   1~3kg    → cont[1] (¥0.70)
+//   3~10kg   → cont[2] (¥0.90)
+function getContTierIdx(chargeKg){
+  if(chargeKg <= 0.05) return 0;
+  if(chargeKg <= 1)    return 0;
+  if(chargeKg <= 3)    return 1;
+  return 2; // >3kg
+}
+
+// 续件档位标签（仅用于显示）
+const OB_CONT_TIERS = [
+  {maxKg:1,  label:'≤1kg'},
+  {maxKg:3,  label:'1~3kg'},
+  {maxKg:999, label:'3~10kg'}
+];
+
+function calcOutboundFee(chargeKg, maxEdgeCm, qty, sha){
+  const p = getPrices().outbound;
+  const pt = sha ? 'shareholder' : 'public';
+  const tierIdx = getOutboundTierIdx(chargeKg, maxEdgeCm);
+  const firstUnitPrice = p.first[pt][tierIdx];
+  // ★ 续件档位只按重量，不受最长边影响
+  const contTierIdx = getContTierIdx(chargeKg);
+  const contUnitPrice = p.cont[pt][contTierIdx];
+
+  let firstFee=0, contFee=0;
+  if(qty<=4){
+    // ≤4件：只收1件首件费（免3件）
+    firstFee = firstUnitPrice;
+    contFee  = 0;
+  } else {
+    // 前4件收1件首件费，第5件起按续件
+    firstFee = firstUnitPrice;
+    contFee  = (qty-4) * contUnitPrice;
+  }
+  return {firstFee, contFee, total:firstFee+contFee, tierLabel:OB_TIERS[tierIdx].label, contTierLabel:OB_CONT_TIERS[contTierIdx].label, contUnitPrice};
+}
+
+// ★ 获取单个SKU的续件单价和档位（用于按订单合并计费时逐件计算）
+//   续件费只按重量档位，不受最长边限制
+function getContUnitPrice(chargeKg, maxEdgeCm, sha){
+  const p = getPrices().outbound;
+  const pt = sha ? 'shareholder' : 'public';
+  const tierIdx = getOutboundTierIdx(chargeKg, maxEdgeCm);
+  const contTierIdx = getContTierIdx(chargeKg);
+  return {
+    contUnitPrice: p.cont[pt][contTierIdx],
+    contTierLabel: OB_CONT_TIERS[contTierIdx].label,
+    firstTierLabel: OB_TIERS[tierIdx].label,
+    firstUnitPrice: p.first[pt][tierIdx]
+  };
+}
+
+// ============================================================
+//  退货：上架费单价
+// ============================================================
+function getReturnShelfPrice(sum3, sha){
+  const p = getPrices().return.shelf;
+  const pt = sha ? 'shareholder' : 'public';
+  if(sum3<=0)   return 0;
+  if(sum3<=55)  return p[pt][0];
+  if(sum3<=130) return p[pt][1];
+  if(sum3<=200) return p[pt][2];
+  return p[pt][3];
+}
+
+// ============================================================
+//  工作表类型判断
+// ============================================================
+function isInboundSheet(n){ const s=n.toLowerCase(); return (s.includes('入库')||s.includes('inbound')||s.includes('上架'))&&!s.includes('退')&&!s.includes('出库'); }
+function isOutboundSheet(n){ const s=n.toLowerCase(); return (s.includes('出库')||s.includes('outbound')||s.includes('发货'))&&!s.includes('退'); }
+function isReturnSheet(n){ const s=n.toLowerCase(); return s.includes('退货')||s.includes('退件')||s.includes('退回')||s.includes('return'); }
+
+// ============================================================
+//  === 入库计费处理 ===
+// ============================================================
+function processInbound(wb, filename){
+  const sheetName = wb.SheetNames.find(isInboundSheet) || wb.SheetNames[0];
+  showToast(`工作表：${sheetName}`,'info');
+  const ws = wb.Sheets[sheetName];
+  const raw = XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+  if(raw.length<2){ showToast('工作表无数据','error'); return; }
+
+  const headers = raw[0].map(h=>String(h||'').trim());
+  const dataRows = raw.slice(1).filter(r=>r.some(c=>c!==''));
+
+  const skuI  = findHeaderIdx(headers,['sku','SKU','商品编码','产品编码','货品编码','FNSKU','货号']);
+
+  // ★ 锁定"上架量"系列为首选列（两阶段查找）
+  //   第1阶段：精确匹配所有"上架量/已上架"相关列名（优先于通用"数量"列）
+  //   第2阶段：找不到才 fallback 到通用数量列（兜底）
+  let qtyI = findHeaderIdx(headers,[
+    '上架量','已上数量','已上架数量','已上架量',
+    '上架数量','已上架','上架件数'
+  ]);
+  let qtySource = '精确匹配';
+  if(qtyI === -1){
+    qtyI = findHeaderIdx(headers,['入库数量','入库件数','到货数量','收货数量','数量','件数','qty','quantity']);
+    qtySource = 'fallback匹配';
+  }
+
+  const custI = findHeaderIdx(headers,['客户','客户名称','货主','客户名','委托方','店铺名']);
+  const custAliasI = findHeaderIdx(headers,['结算对象','结算对象名称','结算方','付款方','账单对象','结算客户']);
+  const lI    = findHeaderIdx(headers,['长','长度','长(cm)','长cm','length','l(cm)','lcm']);
+  const wI    = findHeaderIdx(headers,['宽','宽度','宽(cm)','宽cm','width','w(cm)','wcm']);
+  const hI    = findHeaderIdx(headers,['高','高度','高(cm)','高cm','height','h(cm)','hcm']);
+
+  // 诊断：提示识别到的关键列名
+  const qtyLabel = qtyI>=0 ? `"${headers[qtyI]}"(第${qtyI+1}列,${qtySource})` : '❌未找到';
+  const diagInfo = [
+    `SKU列:${skuI>=0?'"'+headers[skuI]+'"(第'+(skuI+1)+'列)':'❌未找到'}`,
+    `上架量列:${qtyLabel}`,
+    `客户列:${custI>=0?'"'+headers[custI]+'"':'—'}`,
+    `长宽高:${lI>=0?'✅':'❌'}/${wI>=0?'✅':'❌'}/${hI>=0?'✅':'❌'}`
+  ].join(' | ');
+  console.log('[入库计费列识别]', diagInfo, '\n所有列名:', headers);
+
+  // ★ 若未找到上架量列，弹窗显示全部列名，帮助用户告知正确列名
+  if(qtyI === -1){
+    const colList = headers.map((h,i)=>`第${i+1}列："${h}"`).join('\n');
+    alert(`【入库计费】未找到"已上架数量"列！\n\n您的Excel共有以下列名：\n${colList}\n\n请告知哪一列是上架数量，以便添加识别。`);
+  }
+
+  const missSkuSet = new Set();
+  let totalFee=0, zeroRows=0, zeroQtyRows=0;
+
+  const resultRows = dataRows.map(row=>{
+    const sku  = String(row[skuI]||'').trim();
+    // ★ 锁定读取已上架数量列
+    const qty  = qtyI>=0 ? (parseFloat(row[qtyI])||0) : 0;
+    const cust = String(row[custI]||'').trim();
+    const custAlias = custAliasI>=0 ? String(row[custAliasI]||'').trim() : '';
+    const sha  = isShareholder(cust);
+
+    let l=parseFloat(row[lI]||0)||0;
+    let w=parseFloat(row[wI]||0)||0;
+    let h=parseFloat(row[hI]||0)||0;
+
+    // 从SKU库补全尺寸
+    if((!l||!w||!h) && sku && skuDimDB[sku]){
+      const d=skuDimDB[sku];
+      l=l||d.l; w=w||d.w; h=h||d.h;
+    }
+
+    const sum3 = l+w+h;
+    const unitPrice = getInboundUnitPrice(sum3, sha);
+    // ★ 收费合计(元) = 计费单价(元/件) × 已上架数量（已上数量）
+    const fee = unitPrice * qty;
+
+    if(sum3<=0 && sku){ zeroRows++; missSkuSet.add(sku); }
+    if(qty===0) zeroQtyRows++;
+    totalFee += fee;
+
+    return {
+      _row: row,
+      _qty: qty,
+      _sum3: sum3>0 ? sum3.toFixed(1) : '0（缺失）',
+      _unitPrice: unitPrice.toFixed(2),
+      _fee: fee.toFixed(2),
+      _isZero: sum3<=0,
+      _cust: cust,
+      _custAlias: custAlias
+    };
+  });
+
+  resultData.inbound = {headers, resultRows, filename, sheetName, missSkuSet};
+  // ★ 在结果表格中显示"上架量"列，让用户直接核对数量是否读对
+  renderTable('inbound', headers, resultRows, totalFee, zeroRows, missSkuSet,
+    ['上架量','三边之和(cm)','计费单价(元/件)','收费合计(元)'],
+    row=>[row._qty, row._sum3, row._unitPrice, row._fee],
+    row=>row._isZero ? 'row-zero' : ''
+  );
+
+  document.getElementById('inboundStats').style.display='';
+  document.getElementById('inboundTotalRows').textContent = resultRows.length;
+  document.getElementById('inboundTotalFee').textContent  = '¥'+totalFee.toFixed(2);
+  document.getElementById('inboundZeroRows').textContent  = zeroRows;
+  document.getElementById('inboundMissSku').textContent   = missSkuSet.size;
+  document.getElementById('exportInboundBtn').disabled = false;
+
+  renderSkuWarning('inbound', missSkuSet, '入库上架费已计为0');
+
+  // 明确提示数量列识别状态
+  if(qtyI===-1){
+    showToast(`❌ 未找到已上架数量列！收费合计为0。实际列名请告知，当前所有列：${headers.slice(0,10).join(' / ')}`, 'error');
+  } else if(zeroQtyRows===resultRows.length){
+    showToast(`⚠️ 上架数量列"${headers[qtyI]}"所有值均为0，请确认是否是正确的已上架数量列`, 'warning');
+  } else {
+    showToast(`✅ 入库计费完成！上架量列="${headers[qtyI]}" | ${resultRows.length}行 | 合计 ¥${totalFee.toFixed(2)}`,'success');
+  }
+}
+
+// ============================================================
+//  === 出库计费处理 ===
+// ============================================================
+
+// ★ 辅助：按订单号从 orderSkuDB 查找SKU明细，支持截断"-"后重试
+function lookupOrderSku(orderId){
+  if(!orderId) return null;
+  const raw = String(orderId).trim();
+  if(orderSkuDB[raw]) return orderSkuDB[raw];
+  // 去掉含"-"及以后的全部字符再试
+  if(raw.includes('-')){
+    const short = raw.split('-')[0];
+    if(orderSkuDB[short]) return orderSkuDB[short];
+  }
+  return null;
+}
+
+function processOutbound(wb, filename){
+  const sheetName = wb.SheetNames.find(isOutboundSheet) || wb.SheetNames[0];
+  showToast(`工作表：${sheetName}`,'info');
+  const ws = wb.Sheets[sheetName];
+  const raw = XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+  if(raw.length<2){ showToast('工作表无数据','error'); return; }
+
+  const headers = raw[0].map(h=>String(h||'').trim());
+  const dataRows = raw.slice(1).filter(r=>r.some(c=>c!==''));
+
+  const skuI    = findHeaderIdx(headers,['sku','SKU','商品编码','产品编码']);
+  const qtyI    = findHeaderIdx(headers,['出库数量','发货数量','数量','件数']);
+  const custI   = findHeaderIdx(headers,['客户','客户名称','货主']);
+  const custAliasI = findHeaderIdx(headers,['结算对象','结算对象名称','结算方','付款方','账单对象','结算客户']);
+  const lI      = findHeaderIdx(headers,['长','长度','长(cm)','长cm']);
+  const wI      = findHeaderIdx(headers,['宽','宽度','宽(cm)','宽cm']);
+  const hI      = findHeaderIdx(headers,['高','高度','高(cm)','高cm']);
+  // ★ 关联单号 / 订单编号列
+  const linkOrdI  = findHeaderIdx(headers,['关联单号','关联订单号','关联订单','内部单号']);
+  const extOrdI   = findHeaderIdx(headers,['订单编号','外部订单号','外部单号','订单号']);
+
+  // ★ 重量列：明确(kg)才当kg；其余（含毛重、重量无标注）一律按g÷1000
+  //   用户指令：重量和毛重都为g，需换算kg
+  const wtKgI   = findHeaderIdx(headers,['重量(kg)','重量kg','单位重量(kg)','毛重(kg)','订单重量(kg)','实际重量(kg)']);
+  const wtGramI = findHeaderIdx(headers,['重量(g)','重量g','单位重量(g)','毛重(g)','订单重量(g)','实际重量(g)']);
+  // 无单位标注 → 按g处理（÷1000）
+  const wtFallI = findHeaderIdx(headers,['毛重','重量','单位重量','订单重量','实际重量']);
+
+  const missSkuSet = new Set();
+  let totalFee=0, totalFirst=0, totalCont=0;
+  // ★ 数量异常记录
+  const qtyMismatchRows = [];
+
+  const resultRows = dataRows.map((row, rowIndex)=>{
+    let sku  = String(row[skuI]||'').trim();
+    const skuOriginal = sku; // 保留原始值用于显示
+    sku = cleanSkuSuffix(sku); // ★ 去掉*后缀再匹配（如 ZXHWE-0119*1 → ZXHWE-0119）
+    const qty  = parseFloat(row[qtyI]||0)||0;
+    const cust = String(row[custI]||'').trim();
+    const custAlias = custAliasI>=0 ? String(row[custAliasI]||'').trim() : '';
+    const sha  = isShareholder(cust);
+
+    // 获取关联单号用于分组
+    const linkOrd = linkOrdI>=0 ? String(row[linkOrdI]||'').trim() : '';
+    const extOrd  = extOrdI >=0 ? String(row[extOrdI] ||'').trim() : '';
+    const orderKey = linkOrd || extOrd || `__no_order_${rowIndex}`;
+
+    // ======= 获取尺寸和重量（直接从子表构建的 skuDimDB 获取）=======
+    let l = 0, w = 0, h = 0;
+    let rawWeightG = 0;
+    let wtKg = 0;
+    let dimSource = '未找到';
+
+    // 第1步：从 skuDimDB 获取（由 extractSkuDimensions 扫描子表构建）
+    if(sku && skuDimDB[sku]){
+      const d = skuDimDB[sku];
+      l = d.l || 0;
+      w = d.w || 0;
+      h = d.h || 0;
+      if(d.weightKg){ wtKg = d.weightKg; rawWeightG = wtKg * 1000; }
+      dimSource = 'SKU库';
+    }
+
+    // 第2步：通过关联单号/订单编号匹配子表"来源单号"，同时校验数量
+    let orderItems = lookupOrderSku(linkOrd) || lookupOrderSku(extOrd);
+
+    if(orderItems && orderItems.length>0){
+      const matched = sku ? orderItems.filter(it=>it.sku===sku) : orderItems;
+      if(matched.length>0){
+        const m = matched[0];
+        // 子表数据覆盖（优先用关联单号匹配的精确数据）
+        if(m.l>0||m.w>0||m.h>0){ l=m.l; w=m.w; h=m.h; dimSource='子表(来源单号)'; }
+        if(m.weightKg){ wtKg=m.weightKg; rawWeightG=wtKg*1000; }
+        // ★ 数量校验：子表中的数量 vs 出库表中的数量
+        const subQty = matched.reduce((s,it)=>s+it.qty, 0);
+        if(subQty>0 && qty>0 && subQty !== qty){
+          const usedOrd = (linkOrd && lookupOrderSku(linkOrd)) ? linkOrd : extOrd;
+          qtyMismatchRows.push({
+            sku: skuOriginal||'—',
+            orderId: usedOrd||'—',
+            outQty: qty,
+            subQty: subQty,
+            cust,
+            rowRef: row
+          });
+        }
+      }
+    }
+
+    // ======= 缺数据降级策略 =======
+    const hasDim    = l>0 && w>0 && h>0;
+    const hasWeight = wtKg > 0;
+
+    // 体积重 = 长×宽×高 ÷ 6000
+    const volKg = hasDim ? (l*w*h)/6000 : 0;
+
+    let chargeKg = 0;
+    let maxEdge  = 0;
+    let dimFallbackNote = '';
+
+    if(hasDim && hasWeight){
+      chargeKg = Math.max(wtKg, volKg);
+      maxEdge  = Math.max(l, w, h);
+    } else if(!hasDim && hasWeight){
+      chargeKg = wtKg;
+      maxEdge  = 0;
+      dimFallbackNote = '缺尺寸→仅实重计费';
+    } else if(hasDim && !hasWeight){
+      chargeKg = volKg;
+      maxEdge  = Math.max(l, w, h);
+      dimFallbackNote = '缺重量→仅体积重计费';
+    } else {
+      chargeKg = 0.001;
+      maxEdge  = 0;
+      dimFallbackNote = '尺寸+重量均缺→最低档';
+      if(sku) missSkuSet.add(sku);
+    }
+
+    // 计算该SKU的档位信息（后续合并计费用）
+    const priceInfo = getContUnitPrice(chargeKg, maxEdge, sha);
+
+    // 详细计算公式（tooltip展示）
+    const volKgStr   = hasDim ? `${l}×${w}×${h}÷6000=${volKg.toFixed(4)}kg` : '无尺寸';
+    const wtKgStr    = hasWeight ? `${rawWeightG.toFixed(1)}g÷1000=${wtKg.toFixed(4)}kg` : '无重量';
+    const chargeNote = hasDim&&hasWeight ? `max(${wtKg.toFixed(4)},${volKg.toFixed(4)})=${chargeKg.toFixed(4)}kg` : dimFallbackNote;
+
+    return {
+      _row: row,
+      _rowIndex: rowIndex,
+      _skuOriginal: skuOriginal,
+      _skuClean: sku,
+      _orderKey: orderKey,
+      _linkOrd: linkOrd,
+      _extOrd: extOrd,
+      _cust: cust,
+      _custAlias: custAlias,
+      _sha: sha,
+      _qty: qty,
+      _l: l, _w: w, _h: h,
+      _chargeKg: chargeKg,
+      _maxEdge: maxEdge,
+      _rawWeightG: rawWeightG,
+      _hasDim: hasDim,
+      _hasWeight: hasWeight,
+      _dimSource: dimSource,
+      _priceInfo: priceInfo,
+      // 缺失标记
+      _isMiss: !hasDim || !hasWeight,
+      // 公式文本
+      _volKgStr: volKgStr,
+      _wtKgStr: wtKgStr,
+      _chargeNote: chargeNote,
+      // 以下字段在合并计费后填充
+      _maxEdgeDisplay: '',
+      _chargeKgDisplay: '',
+      _firstFee: '',
+      _contFee: '',
+      _total: '',
+      _roleLabel: '', // '首件(最重)' / '免3件' / '续件' / '续件(第N件)'
+      _orderFeeDetail: '' // 整单计费说明
+    };
+  });
+
+  // ======= 按关联单号分组，合并计费 =======
+  // ★ 计费规则：同订单内按出库数量合并
+  //   总数量≤4件：只收1件首件费（取最重SKU档位），其余免
+  //   总数量＞4件：首件1件 + 免3件，第5件起按各SKU各自档位 × 出库数量叠加续件费
+  const orderGroups = {};
+  resultRows.forEach(r => {
+    if(!orderGroups[r._orderKey]) orderGroups[r._orderKey] = [];
+    orderGroups[r._orderKey].push(r);
+  });
+
+  Object.values(orderGroups).forEach(group => {
+    const totalQty = group.reduce((s, r) => s + r._qty, 0); // 同订单所有SKU出库数量合计
+    const sha = group[0]._sha;
+
+    // ★ 找到最重的SKU作为首件（按计费重量降序排列）
+    const sorted = [...group].sort((a, b) => b._chargeKg - a._chargeKg);
+    const firstItem = sorted[0];
+
+    // 首件费 = 最重SKU的档位首件费（只收1件的首件费）
+    const firstFee = firstItem._priceInfo.firstUnitPrice;
+    firstItem._roleLabel = `首件(最重 ${firstItem._skuClean})`;
+    // 首件SKU的qty如果>1，多出的部分也要按续件算
+    const firstExtraQty = Math.max(0, firstItem._qty - 1);
+
+    if(totalQty <= 4){
+      // ≤4件：只收首件费1次（1件），其余全部免
+      sorted.forEach((r, i) => {
+        if(i === 0) return; // 首件已标记
+        r._roleLabel = `免(≤4件免${r._qty}件)`;
+        r._contFee = '0.00';
+      });
+    } else {
+      // >4件：首件1件 + 免3件 + 第5件起按各自档位 × 出库数量叠加
+      // 免费数量 = 3（不含首件那1件），即前4件只收1件首件
+      const freeQty = 3;
+
+      // ★ 计算每个续件SKU需要收续件费的数量
+      // 逻辑：扣掉首件1件 + 免费3件 = 4件后，剩余数量按排列顺序分摊到各SKU
+      let remainFreeQty = freeQty;
+      sorted.forEach((r, i) => {
+        if(i === 0){
+          // 首件SKU：多出部分按续件
+          if(firstExtraQty > 0){
+            // 先从remainFreeQty中扣
+            const freeFromFirst = Math.min(firstExtraQty, remainFreeQty);
+            const contQtyFromFirst = firstExtraQty - freeFromFirst;
+            remainFreeQty -= freeFromFirst;
+            if(contQtyFromFirst > 0){
+              const contUnit = r._priceInfo.contUnitPrice;
+              const fee = contQtyFromFirst * contUnit;
+              r._contFee = fee.toFixed(2);
+              r._roleLabel = `首件+续件(${contQtyFromFirst}件×¥${contUnit.toFixed(2)}) ${r._skuClean}`;
+            } else {
+              r._contFee = '0.00';
+              r._roleLabel = `首件(最重 ${r._skuClean})`;
+            }
+          } else {
+            r._contFee = '0.00';
+            r._roleLabel = `首件(最重 ${r._skuClean})`;
+          }
+          return;
+        }
+
+        // 非首件SKU
+        const thisQty = r._qty;
+        if(remainFreeQty > 0){
+          const freePart = Math.min(thisQty, remainFreeQty);
+          const contPart = thisQty - freePart;
+          remainFreeQty -= freePart;
+          if(contPart > 0){
+            const contUnit = r._priceInfo.contUnitPrice;
+            const fee = contPart * contUnit;
+            r._contFee = fee.toFixed(2);
+            r._roleLabel = `续件(${contPart}件×¥${contUnit.toFixed(2)}) ${r._skuClean}→${r._priceInfo.contTierLabel}`;
+          } else {
+            r._contFee = '0.00';
+            r._roleLabel = `免(${freePart}件)`;
+          }
+        } else {
+          // 免费额度已用完，全部按续件
+          const contUnit = r._priceInfo.contUnitPrice;
+          const fee = thisQty * contUnit;
+          r._contFee = fee.toFixed(2);
+          r._roleLabel = `续件(${thisQty}件×¥${contUnit.toFixed(2)}) ${r._skuClean}→${r._priceInfo.contTierLabel}`;
+        }
+      });
+    }
+
+    // 给组内所有行填充费用信息
+    const contFeeSum = group.reduce((s, r) => s + (parseFloat(r._contFee) || 0), 0);
+    const orderTotal = firstFee + contFeeSum;
+
+    group.forEach(r => {
+      r._firstFee = (r === firstItem || r._roleLabel.includes('首件')) ? firstFee.toFixed(2) : '—';
+      r._total = (r === firstItem || r._roleLabel.includes('首件')) ? orderTotal.toFixed(2) : '—';
+      // 计费重量显示
+      r._chargeKgDisplay = (r._chargeKg > 0 && r._chargeKg !== 0.001) ? r._chargeKg.toFixed(4) : (r._chargeKg === 0.001 ? '—(最低档)' : '0');
+      r._maxEdgeDisplay = r._maxEdge > 0 ? r._maxEdge.toFixed(1) : '—';
+      // 整单费用说明
+      if(r === firstItem){
+        r._orderFeeDetail = `首件¥${firstFee.toFixed(2)}(${r._priceInfo.firstTierLabel}) + 续件¥${contFeeSum.toFixed(2)}(数量${totalQty}件，前4件免3件) = ¥${orderTotal.toFixed(2)}`;
+      }
+    });
+
+    totalFee   += orderTotal;
+    totalFirst += firstFee;
+    totalCont  += contFeeSum;
+  });
+
+  resultData.outbound = {headers, resultRows, filename, sheetName, missSkuSet, qtyMismatchRows};
+
+  // ★ 分组诊断信息
+  const groupIds = Object.keys(orderGroups);
+  const multiSkuGroups = groupIds.filter(k => orderGroups[k].length > 1);
+  const contGroups = groupIds.filter(k => orderGroups[k].reduce((s, r) => s + r._qty, 0) > 4);
+  const noOrderKeyCount = groupIds.filter(k => k.startsWith('__no_order_')).length;
+
+  renderOutboundTable(headers, resultRows, totalFee, totalFirst, totalCont, qtyMismatchRows);
+
+  document.getElementById('outboundStats').style.display='';
+  document.getElementById('outboundTotalRows').textContent = resultRows.length;
+  document.getElementById('outboundTotalFee').textContent  = '¥'+totalFee.toFixed(2);
+  document.getElementById('outboundFirstFee').textContent  = '¥'+totalFirst.toFixed(2);
+  document.getElementById('outboundContFee').textContent   = '¥'+totalCont.toFixed(2);
+  document.getElementById('exportOutboundBtn').disabled = false;
+
+  renderSkuWarning('outbound', missSkuSet, '出库计费已按最低档处理');
+
+  // ★ 关键警告：未找到关联单号/订单编号列 → 每行独立分组，续件费永远为0
+  if(linkOrdI === -1 && extOrdI === -1){
+    showToast(`❌ 未找到"关联单号"或"订单编号"列！每行视为独立订单，续件费始终为0。实际列名：${headers.slice(0,15).join(' / ')}`, 'error', 8000);
+  } else if(linkOrdI === -1){
+    showToast(`⚠️ 未找到"关联单号"列，已用"订单编号"分组。如分组不正确请检查列名`, 'warning', 5000);
+  } else if(extOrdI === -1){
+    showToast(`⚠️ 未找到"订单编号"列，已用"关联单号"分组。如分组不正确请检查列名`, 'warning', 5000);
+  }
+
+  // 分组统计提示
+  if(multiSkuGroups.length > 0){
+    showToast(`📦 分组统计：${groupIds.length}个订单 | 多SKU订单${multiSkuGroups.length}个 | >4件订单${contGroups.length}个(有续件费)`, 'info', 6000);
+  } else {
+    showToast(`📦 分组统计：${groupIds.length}个订单，均无多SKU合并（每订单仅1件）`, 'info', 6000);
+  }
+
+  if(qtyMismatchRows.length>0){
+    showToast(`⚠️ 发现 ${qtyMismatchRows.length} 条数量不一致记录，请查看底部异常提醒表格`, 'warning');
+  }
+  showToast(`出库计费完成！${resultRows.length}行，合计 ¥${totalFee.toFixed(2)}`,'success');
+}
+
+function renderOutboundTable(headers, resultRows, totalFee, totalFirst, totalCont, qtyMismatchRows){
+  const newCols = ['计费角色','计费重量kg','最长边cm','首件费(元)','续件费(元)','收费合计(元)'];
+  let html = '<thead><tr>';
+  headers.forEach(h=>html+=`<th>${esc(h)}</th>`);
+  newCols.forEach(h=>html+=`<th class="col-new-header">${h}</th>`);
+  html += '</tr></thead><tbody>';
+
+  resultRows.forEach(row=>{
+    const isMiss = row._isMiss;
+    const isFree = row._roleLabel.startsWith('免');
+    const isCont = row._roleLabel.startsWith('续件');
+    const isFirst = row._roleLabel.startsWith('首件');
+    let cls = '';
+    if(isMiss) cls = ' class="row-warning"';
+    else if(isFree) cls = ' style="background:#f0f0f0;color:#999"';
+
+    html += `<tr${cls}>`;
+    row._row.forEach(c=>html+=`<td>${esc(String(c))}</td>`);
+    // 计费角色
+    const roleColor = isFirst ? 'color:#c0392b;font-weight:700' : (isCont ? 'color:#2980b9;font-weight:700' : '');
+    html += `<td class="col-new" style="${roleColor};font-size:11px">${esc(row._roleLabel)}</td>`;
+    // 计费重量（带tooltip）
+    const detail = `体积重:${row._volKgStr} | 实重:${row._wtKgStr} | ${row._chargeNote} | 来源:${row._dimSource}` + (row._orderFeeDetail ? ` | 整单:${row._orderFeeDetail}` : '');
+    html += `<td class="col-new" title="${esc(detail)}" style="cursor:help">${row._chargeKgDisplay} <span style="font-size:10px;color:#aaa">ℹ</span></td>`;
+    html += `<td class="col-new">${row._maxEdgeDisplay}</td>`;
+    html += `<td class="col-new">${row._firstFee}</td>`;
+    html += `<td class="col-new">${row._contFee}</td>`;
+    html += `<td class="col-new" style="font-weight:700">${row._total}</td>`;
+    html += '</tr>';
+  });
+
+  html += `<tr class="total-row"><td colspan="${headers.length}"><strong>合计</strong></td>`;
+  html += `<td class="col-new">—</td><td class="col-new">—</td><td class="col-new">—</td>`;
+  html += `<td class="col-new"><strong>¥${totalFirst.toFixed(2)}</strong></td>`;
+  html += `<td class="col-new"><strong>¥${totalCont.toFixed(2)}</strong></td>`;
+  html += `<td class="col-new"><strong>¥${totalFee.toFixed(2)}</strong></td>`;
+  html += '</tr></tbody>';
+
+  document.getElementById('outboundResultTable').innerHTML = html;
+  document.getElementById('outboundResultArea').style.display='';
+
+  // ★ 数量不一致异常提醒表格
+  const mismatchArea = document.getElementById('outboundMismatchArea');
+  if(!qtyMismatchRows || qtyMismatchRows.length===0){
+    mismatchArea.style.display='none';
+    mismatchArea.innerHTML='';
+    return;
+  }
+  let mh = `<div style="margin-top:18px;border:2px solid var(--warning);border-radius:10px;overflow:hidden">`;
+  mh += `<div style="background:var(--warning);color:#fff;padding:10px 16px;font-weight:700;font-size:14px">`;
+  mh += `⚠️ 数量不一致异常提醒（共 ${qtyMismatchRows.length} 条）</div>`;
+  mh += `<div style="padding:10px 12px;font-size:12px;color:var(--text2)">`;
+  mh += `出库表数量 与 关联子表（订单信息）中的SKU数量不一致，请核对以下记录：</div>`;
+  mh += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">`;
+  mh += `<thead><tr>`;
+  ['SKU','订单/关联单号','出库表数量','子表数量','差值','客户','处理建议'].forEach(h=>{
+    mh += `<th style="background:#fff3cd;padding:8px 10px;border:1px solid #ffc107;text-align:left">${h}</th>`;
+  });
+  mh += `</tr></thead><tbody>`;
+  qtyMismatchRows.forEach((r,i)=>{
+    const diff = r.outQty - r.subQty;
+    const diffStr = diff>0 ? `+${diff}（出库多）` : `${diff}（出库少）`;
+    const bg = i%2===0 ? '#fffbe6' : '#fff9e0';
+    mh += `<tr style="background:${bg}">`;
+    mh += `<td style="padding:7px 10px;border:1px solid #ffc107">${esc(r.sku)}</td>`;
+    mh += `<td style="padding:7px 10px;border:1px solid #ffc107">${esc(r.orderId)}</td>`;
+    mh += `<td style="padding:7px 10px;border:1px solid #ffc107;color:#e74c3c;font-weight:700">${r.outQty}</td>`;
+    mh += `<td style="padding:7px 10px;border:1px solid #ffc107;color:#2980b9;font-weight:700">${r.subQty}</td>`;
+    mh += `<td style="padding:7px 10px;border:1px solid #ffc107;color:${diff>0?'#e74c3c':'#27ae60'};font-weight:700">${diffStr}</td>`;
+    mh += `<td style="padding:7px 10px;border:1px solid #ffc107">${esc(r.cust)}</td>`;
+    mh += `<td style="padding:7px 10px;border:1px solid #ffc107;color:var(--text2)">请核对原始订单</td>`;
+    mh += `</tr>`;
+  });
+  mh += `<div style="padding:10px 12px;text-align:right">`;
+  mh += `<button class="btn btn-sm" style="background:var(--warning);color:#fff;font-size:13px" onclick="downloadMismatchRows()">📥 下载异常提醒表格</button>`;
+  mh += `</div>`;
+  mh += `</div></div>`;
+  mismatchArea.innerHTML = mh;
+  mismatchArea.style.display='';
+}
+
+// ============================================================
+//  === 退货计费处理 ===
+// ============================================================
+function processReturn(wb, filename){
+  const sheetName = wb.SheetNames.find(isReturnSheet) || wb.SheetNames[0];
+  showToast(`工作表：${sheetName}`,'info');
+  const ws = wb.Sheets[sheetName];
+  const raw = XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+  if(raw.length<2){ showToast('工作表无数据','error'); return; }
+
+  const headers = raw[0].map(h=>String(h||'').trim());
+  const dataRows = raw.slice(1).filter(r=>r.some(c=>c!==''));
+
+  const skuI      = findHeaderIdx(headers,['sku','SKU','商品编码','产品编码']);
+  const qtyI      = findHeaderIdx(headers,['上架量','已上数量','已上架数量','已上架量','上架数量','已上架','上架件数','入库数量','数量']);
+  const custI     = findHeaderIdx(headers,['客户','客户名称','货主']);
+  const custAliasI = findHeaderIdx(headers,['结算对象','结算对象名称','结算方','付款方','账单对象','结算客户']);
+  const extOrdI   = findHeaderIdx(headers,['外部订单号','外部单号','订单号']);
+  const linkOrdI  = findHeaderIdx(headers,['关联单号','关联订单号','内部单号']);
+  const billTypeI = findHeaderIdx(headers,['计费名称','费用类型','费用名称','账单类型','计费类型']);
+  const lI        = findHeaderIdx(headers,['长','长度','长(cm)','长cm']);
+  const wI        = findHeaderIdx(headers,['宽','宽度','宽(cm)','宽cm']);
+  const hI        = findHeaderIdx(headers,['高','高度','高(cm)','高cm']);
+
+  const retInbFee = getPrices().return.inboundFee;
+
+  // 重复检测：统计退件入库费行的订单号
+  const seenOrders = new Map();
+  dataRows.forEach((row,i)=>{
+    const bt = String(row[billTypeI]||'').trim();
+    const isInbRow = billTypeI!==-1 ? bt.includes('入库') : !String(row[skuI]||'').trim();
+    if(!isInbRow) return;
+    const extOrd  = String(row[extOrdI]||'').trim();
+    const linkOrd = String(row[linkOrdI]||'').trim();
+    const ordId = (extOrd && extOrd!=='0') ? extOrd : linkOrd;
+    if(!ordId) return;
+    if(!seenOrders.has(ordId)) seenOrders.set(ordId,[]);
+    seenOrders.get(ordId).push(i);
+  });
+  const dupOrderIds = new Set();
+  seenOrders.forEach((idxs,ordId)=>{ if(idxs.length>1) dupOrderIds.add(ordId); });
+
+  const missSkuSet = new Set();
+  let totalFee=0, totalInbFee=0, dupCount=0;
+
+  const resultRows = dataRows.map((row,i)=>{
+    const sku  = String(row[skuI]||'').trim();
+    const qty  = parseFloat(row[qtyI]||0)||0;
+    const cust = String(row[custI]||'').trim();
+    const custAlias = custAliasI>=0 ? String(row[custAliasI]||'').trim() : '';
+    const sha  = isShareholder(cust);
+    const bt   = String(row[billTypeI]||'').trim();
+
+    // 判断计费类型
+    let billingType;
+    if(billTypeI!==-1){
+      if(bt.includes('入库'))     billingType='退件入库费';
+      else if(bt.includes('上架')) billingType='退件上架费';
+      else billingType = sku ? '退件上架费' : '退件入库费';
+    } else {
+      billingType = sku ? '退件上架费' : '退件入库费';
+    }
+
+    let l=parseFloat(row[lI]||0)||0, w=parseFloat(row[wI]||0)||0, h=parseFloat(row[hI]||0)||0;
+    if((!l||!w||!h) && sku && skuDimDB[sku]){
+      const d=skuDimDB[sku]; l=l||d.l; w=w||d.w; h=h||d.h;
+    }
+    const sum3 = l+w+h;
+
+    let sum3Display='', inbFeeVal='', shelfFeeVal='', rowFee=0;
+
+    if(billingType==='退件入库费'){
+      inbFeeVal = retInbFee.toFixed(2);
+      rowFee = retInbFee;
+      totalInbFee += retInbFee;
+    } else {
+      if(sum3<=0 && sku) missSkuSet.add(sku);
+      sum3Display = sum3>0 ? sum3.toFixed(1) : '0（缺失）';
+      const unitPrice = getReturnShelfPrice(sum3, sha);
+      shelfFeeVal = unitPrice.toFixed(2);
+      // ★ 收费合计 = 计费单价 × 已上架数量
+      rowFee = unitPrice * qty;
+    }
+    totalFee += rowFee;
+
+    // 重复检测
+    const extOrd  = String(row[extOrdI]||'').trim();
+    const linkOrd = String(row[linkOrdI]||'').trim();
+    const ordId = (extOrd && extOrd!=='0') ? extOrd : linkOrd;
+    const isDup = billingType==='退件入库费' && dupOrderIds.has(ordId);
+    if(isDup) dupCount++;
+
+    return {
+      _row: row,
+      _billingType: billingType,
+      _sum3Display: sum3Display,
+      _inbFeeVal:   inbFeeVal,
+      _shelfFeeVal: shelfFeeVal,
+      _rowFee:      rowFee.toFixed(2),
+      _isDup:       isDup,
+      _isZero:      billingType==='退件上架费' && sum3<=0,
+      _cust:        cust,
+      _custAlias:   custAlias
+    };
+  });
+
+  resultData.return = {headers, resultRows, filename, sheetName, missSkuSet};
+  renderReturnTable(headers, resultRows, totalFee, totalInbFee, dupCount);
+
+  document.getElementById('returnStats').style.display='';
+  document.getElementById('returnTotalRows').textContent   = resultRows.length;
+  document.getElementById('returnTotalFee').textContent    = '¥'+totalFee.toFixed(2);
+  document.getElementById('returnInboundFee').textContent  = '¥'+totalInbFee.toFixed(2);
+  document.getElementById('returnDupRows').textContent     = dupCount;
+  document.getElementById('exportReturnBtn').disabled = false;
+
+  renderSkuWarning('return', missSkuSet, '退件上架费已计为0');
+  showToast(`退货计费完成！${resultRows.length}行，合计 ¥${totalFee.toFixed(2)}，重复${dupCount}条`,'success');
+}
+
+function renderReturnTable(headers, resultRows, totalFee, totalInbFee, dupCount){
+  const newCols=['计费类型','上架费三边之和(cm)','退件入库费(元)','退件上架费(元)','收费合计(元)'];
+  let html='<thead><tr>';
+  headers.forEach(h=>html+=`<th>${esc(h)}</th>`);
+  newCols.forEach(h=>html+=`<th class="col-new-header">${h}</th>`);
+  html+='</tr></thead><tbody>';
+
+  resultRows.forEach(row=>{
+    let rowCls='';
+    if(row._isDup) rowCls=' class="row-duplicate"';
+    else if(row._isZero) rowCls=' class="row-zero"';
+    html+=`<tr${rowCls}>`;
+    row._row.forEach(c=>html+=`<td>${esc(String(c))}</td>`);
+    const badge = row._billingType.includes('入库') ? 'badge-info' : 'badge-shareholder';
+    html+=`<td class="col-new"><span class="badge ${badge}">${row._billingType}</span></td>`;
+    html+=`<td class="col-new">${row._sum3Display}</td>`;
+    html+=`<td class="col-new">${row._inbFeeVal}</td>`;
+    html+=`<td class="col-new">${row._shelfFeeVal}</td>`;
+    html+=`<td class="col-new">${row._isDup?'<span class="badge badge-error">重复!</span> ':''}${row._rowFee}</td>`;
+    html+='</tr>';
+  });
+
+  html+=`<tr class="total-row"><td colspan="${headers.length}"><strong>合计</strong></td>`;
+  html+=`<td class="col-new">—</td><td class="col-new">—</td>`;
+  html+=`<td class="col-new"><strong>¥${totalInbFee.toFixed(2)}</strong></td>`;
+  html+=`<td class="col-new">—</td>`;
+  html+=`<td class="col-new"><strong>¥${totalFee.toFixed(2)}</strong></td>`;
+  html+='</tr></tbody>';
+
+  document.getElementById('returnResultTable').innerHTML=html;
+  document.getElementById('returnResultArea').style.display='';
+}
+
+// ============================================================
+//  通用表格渲染（入库用）
+// ============================================================
+function renderTable(scene, headers, resultRows, totalFee, zeroRows, missSkuSet, newColHeaders, cellFn, clsFn){
+  let html='<thead><tr>';
+  headers.forEach(h=>html+=`<th>${esc(h)}</th>`);
+  newColHeaders.forEach(h=>html+=`<th class="col-new-header">${h}</th>`);
+  html+='</tr></thead><tbody>';
+
+  resultRows.forEach(row=>{
+    const cls = clsFn(row);
+    html+=`<tr${cls?' class="'+cls+'"':''}>`;
+    row._row.forEach(c=>html+=`<td>${esc(String(c))}</td>`);
+    cellFn(row).forEach(v=>html+=`<td class="col-new">${v}</td>`);
+    html+='</tr>';
+  });
+
+  // 合计行
+  const emptyCols = newColHeaders.map((_,i)=>i<newColHeaders.length-1?'—':`<strong>¥${totalFee.toFixed(2)}</strong>`);
+  html+=`<tr class="total-row"><td colspan="${headers.length}"><strong>合计</strong></td>`;
+  emptyCols.forEach(v=>html+=`<td class="col-new">${v}</td>`);
+  html+='</tr></tbody>';
+
+  document.getElementById(scene+'ResultTable').innerHTML=html;
+  document.getElementById(scene+'ResultArea').style.display='';
+}
+
+// ============================================================
+//  SKU缺失警告区域
+// ============================================================
+function renderSkuWarning(scene, missSkuSet, tip){
+  const el = document.getElementById(scene+'SkuWarning');
+  if(missSkuSet.size>0){
+    el.innerHTML=`
+      <div class="sku-warning-box">
+        <div class="sku-warning-title">⚠️ 以下 ${missSkuSet.size} 个 SKU 缺失长宽高信息，${tip}，请核查补录</div>
+        <div class="sku-chips">${[...missSkuSet].map(s=>`<span class="sku-chip">${esc(s)}</span>`).join('')}</div>
+        <button class="btn btn-sm" style="margin-top:10px;background:#ff9800;color:white" onclick="downloadMissSkus('${scene}')">📥 下载缺失SKU列表</button>
+      </div>`;
+  } else {
+    el.innerHTML='';
+  }
+}
+
+// ============================================================
+//  清除结果
+// ============================================================
+function clearResult(scene){
+  resultData[scene]=null;
+  document.getElementById(scene+'ResultArea').style.display='none';
+  document.getElementById(scene+'Stats').style.display='none';
+  document.getElementById(scene+'SkuWarning').innerHTML='';
+  document.getElementById('export'+cap(scene)+'Btn').disabled=true;
+  showToast('已清除','info');
+}
+function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+
+// ============================================================
+//  导出结果 Excel
+// ============================================================
+function exportResult(scene){
+  const d = resultData[scene];
+  if(!d){ showToast('暂无计算结果','warning'); return; }
+  const {headers, resultRows, filename, sheetName} = d;
+  const wb2 = XLSX.utils.book_new();
+
+  let newHdrs, rows2;
+  if(scene==='inbound'){
+    newHdrs=['三边之和(cm)','计费单价(元/件)','收费合计(元)'];
+    rows2=resultRows.map(r=>[...r._row, r._sum3, r._unitPrice, r._fee]);
+    // 合计行
+    const tf=resultRows.reduce((s,r)=>s+parseFloat(r._fee||0),0);
+    const tot=new Array(headers.length).fill(''); tot[0]='合计';
+    tot.push('—','—',tf.toFixed(2));
+    rows2.push(tot);
+  } else if(scene==='outbound'){
+    newHdrs=['SKU最长边(cm)','计费重量kg','出库费用(元)','续件费用(元)','收费合计(元)'];
+    rows2=resultRows.map(r=>[...r._row, r._maxEdge, r._chargeKg, r._firstFee, r._contFee, r._total]);
+    const tf=resultRows.reduce((s,r)=>s+parseFloat(r._total||0),0);
+    const tf1=resultRows.reduce((s,r)=>s+parseFloat(r._firstFee||0),0);
+    const tf2=resultRows.reduce((s,r)=>s+parseFloat(r._contFee||0),0);
+    const tot=new Array(headers.length).fill(''); tot[0]='合计';
+    tot.push('—','—',tf1.toFixed(2),tf2.toFixed(2),tf.toFixed(2));
+    rows2.push(tot);
+  } else {
+    newHdrs=['计费类型','上架费三边之和(cm)','退件入库费(元)','退件上架费(元)','收费合计(元)'];
+    rows2=resultRows.map(r=>[...r._row, r._billingType, r._sum3Display, r._inbFeeVal, r._shelfFeeVal, r._rowFee]);
+    const tf=resultRows.reduce((s,r)=>s+parseFloat(r._rowFee||0),0);
+    const ti=resultRows.reduce((s,r)=>s+parseFloat(r._inbFeeVal||0),0);
+    const tot=new Array(headers.length).fill(''); tot[0]='合计';
+    tot.push('—','—',ti.toFixed(2),'—',tf.toFixed(2));
+    rows2.push(tot);
+  }
+
+  const wsData=[[...headers,...newHdrs],...rows2];
+  const ws=XLSX.utils.aoa_to_sheet(wsData);
+  ws['!cols']=[...headers.map(()=>({wch:14})),...newHdrs.map(()=>({wch:18}))];
+  XLSX.utils.book_append_sheet(wb2, ws, sheetName||scene);
+
+  // 缺失SKU单独sheet
+  if(d.missSkuSet && d.missSkuSet.size>0){
+    const missWs=XLSX.utils.aoa_to_sheet([['缺失尺寸SKU编码'],...[...d.missSkuSet].map(s=>[s])]);
+    XLSX.utils.book_append_sheet(wb2, missWs,'缺失SKU提醒');
+  }
+
+  // 出库异常提醒（数量不一致）单独sheet
+  if(scene==='outbound' && d.qtyMismatchRows && d.qtyMismatchRows.length>0){
+    const mHdrs=['SKU','订单/关联单号','出库表数量','子表数量','差值','客户','处理建议'];
+    const mRows=d.qtyMismatchRows.map(r=>{
+      const diff=r.outQty-r.subQty;
+      const diffStr=diff>0?`+${diff}（出库多）`:`${diff}（出库少）`;
+      return [r.sku,r.orderId,r.outQty,r.subQty,diffStr,r.cust,'请核对原始订单'];
+    });
+    const mWs=XLSX.utils.aoa_to_sheet([mHdrs,...mRows]);
+    mWs['!cols']=mHdrs.map(()=>({wch:20}));
+    XLSX.utils.book_append_sheet(wb2,mWs,'数量异常提醒');
+  }
+
+  const outName=filename.replace(/\.xlsx?$/i,'')+'_计费结果.xlsx';
+  XLSX.writeFile(wb2, outName);
+  showToast(`已导出：${outName}`,'success');
+}
+
+// ============================================================
+//  下载缺失SKU
+// ============================================================
+function downloadMissSkus(scene){
+  const d=resultData[scene];
+  if(!d||!d.missSkuSet||d.missSkuSet.size===0){ showToast('无缺失SKU','warning'); return; }
+  const wb2=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet([['缺失尺寸信息的SKU编码'],...[...d.missSkuSet].map(s=>[s])]);
+  XLSX.utils.book_append_sheet(wb2,ws,'缺失SKU');
+  XLSX.writeFile(wb2,`缺失SKU_${scene}_${Date.now()}.xlsx`);
+  showToast('缺失SKU列表已下载','success');
+}
+
+// ============================================================
+//  下载出库异常提醒表格
+// ============================================================
+function downloadMismatchRows(){
+  const d = resultData.outbound;
+  if(!d || !d.qtyMismatchRows || d.qtyMismatchRows.length===0){
+    showToast('暂无异常提醒数据','warning'); return;
+  }
+  const wb2 = XLSX.utils.book_new();
+  const hdrs = ['SKU','订单/关联单号','出库表数量','子表数量','差值','客户','处理建议'];
+  const rows = d.qtyMismatchRows.map(r=>{
+    const diff = r.outQty - r.subQty;
+    const diffStr = diff>0 ? `+${diff}（出库多）` : `${diff}（出库少）`;
+    return [r.sku, r.orderId, r.outQty, r.subQty, diffStr, r.cust, '请核对原始订单'];
+  });
+  const ws = XLSX.utils.aoa_to_sheet([hdrs, ...rows]);
+  ws['!cols'] = hdrs.map(()=>({wch:20}));
+  XLSX.utils.book_append_sheet(wb2, ws, '数量异常提醒');
+  const outName = (d.filename||'出库').replace(/\.xlsx?$/i,'')+'_异常提醒.xlsx';
+  XLSX.writeFile(wb2, outName);
+  showToast(`异常提醒已导出：${outName}`,'success');
+}
+
+// ============================================================
+//  工具
+// ============================================================
+// ============================================================
+//  账单汇总
+// ============================================================
+let summaryTemplateWB = null;   // 用户上传的汇总模板 workbook (arraybuffer)
+let summaryTemplateRows = [];   // 模板原始行数据
+let summaryResult = [];         // [{custName, custCode, inbound, outbound, storage, ret, total}]
+
+function handleSummaryTemplate(e){
+  const file = (e.target||e).files && (e.target||e).files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    try {
+      summaryTemplateWB = ev.target.result;
+      const wb = XLSX.read(new Uint8Array(summaryTemplateWB), {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      summaryTemplateRows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      document.getElementById('summaryTemplateInfo').style.display='';
+      document.getElementById('summaryTemplateName').textContent = '已加载: ' + file.name;
+      showToast('汇总模板已加载: ' + file.name, 'success');
+    } catch(err) {
+      showToast('模板加载失败: ' + err.message, 'error');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function handleDropSummary(e){
+  e.preventDefault();
+  e.currentTarget.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if(file && file.name.match(/\.xlsx?$/i)){
+    const fakeEvt = {target:{files:[file]}};
+    handleSummaryTemplate(fakeEvt);
+  } else {
+    showToast('请上传 Excel 文件','error');
+  }
+}
+
+function clearSummary(){
+  summaryResult = [];
+  document.getElementById('summaryResultArea').style.display='none';
+  document.getElementById('summaryStats').style.display='none';
+  document.getElementById('exportSummaryBtn').disabled = true;
+  showToast('汇总已清除','info');
+}
+
+// 客户名称关键词提取（用于别名合并）
+function extractKeyword(name){
+  if(!name || name.length < 2) return '';
+  // 去掉常见后缀关键词
+  const cleaned = name.replace(/(跨境|贸易|物流|仓配|供应链|公司|有限公司|有限责任公司|LLC|Co\.|Ltd\.|Inc\.)$/gi, '').trim();
+  // 如果清理后还有内容且长度>=2，用清理后的
+  if(cleaned.length >= 2) return cleaned;
+  // 取前半部分（长名取前4字）
+  return name.length > 4 ? name.substring(0, 4) : name;
+}
+
+// ★ 全局客户别名映射（generateSummary 时构建，downloadCustBill 等场景使用）
+let _custAliasMap = null;  // { rawName: canonicalName }
+function getCanonicalName(name){
+  if(!_custAliasMap) return name || '未知客户';
+  if(!name || name==='未知客户') return '未知客户';
+  return _custAliasMap[name] || name;
+}
+
+// 匹配客户行（同时检查 _cust 和 _custAlias）
+function matchCust(row, targetName){
+  const c = String(row._cust||'').trim();
+  const a = String(row._custAlias||'').trim();
+  const raw = c || a || '';
+  if(!raw) return targetName === '未知客户';
+  const canonical = getCanonicalName(raw);
+  return canonical === targetName;
+}
+
+function generateSummary(){
+  const period = document.getElementById('summaryPeriod').value.trim();
+  const warehouse = document.getElementById('summaryWarehouse').value.trim();
+
+  if(!resultData.inbound && !resultData.outbound && !resultData.return){
+    showToast('请先完成至少一个场景的计费（入库/出库/退货）','warning');
+    return;
+  }
+
+  // ★ 第一步：建立客户别名映射表
+  const allCustPairs = [];
+  function collectCustPairs(scene){
+    const d = resultData[scene];
+    if(!d || !d.resultRows) return;
+    d.resultRows.forEach(row=>{
+      const c = String(row._cust||'').trim();
+      const a = String(row._custAlias||'').trim();
+      if(c || a) allCustPairs.push({cust: c, alias: a});
+    });
+  }
+  collectCustPairs('inbound');
+  collectCustPairs('outbound');
+  collectCustPairs('return');
+
+  // 收集所有客户名称
+  const nameSet = new Set();
+  allCustPairs.forEach(p=>{
+    if(p.cust) nameSet.add(p.cust);
+    if(p.alias) nameSet.add(p.alias);
+  });
+  const allNames = [...nameSet].filter(n=>n && n!=='未知客户');
+
+  // 并查集实现合并
+  const parent = {};
+  allNames.forEach(n=> parent[n] = n);
+  function find(x){
+    if(!parent[x]) return x;
+    if(parent[x] !== x) parent[x] = find(parent[x]);
+    return parent[x];
+  }
+  function union(a, b){
+    if(!a || !b || a===b) return;
+    const ra = find(a), rb = find(b);
+    if(ra !== rb) parent[ra] = rb;
+  }
+
+  // 1) 同一行中 cust 和 custAlias 必须合并
+  allCustPairs.forEach(p=>{
+    if(p.cust && p.alias) union(p.cust, p.alias);
+  });
+
+  // 2) 包含相同关键词的名称合并
+  const keywordMap = {};
+  allNames.forEach(n=>{
+    const kw = extractKeyword(n);
+    if(kw){
+      if(!keywordMap[kw]) keywordMap[kw] = [];
+      keywordMap[kw].push(n);
+    }
+  });
+  Object.values(keywordMap).forEach(group=>{
+    for(let i=1;i<group.length;i++) union(group[0], group[i]);
+  });
+
+  // 构建全局别名映射表 { 原始名: 标准名 }
+  const canonicalMap = {};
+  allNames.forEach(n=>{
+    const root = find(n);
+    if(!canonicalMap[root] || n < canonicalMap[root]) canonicalMap[root] = n;
+  });
+  _custAliasMap = {};
+  allNames.forEach(n=>{
+    const root = find(n);
+    _custAliasMap[n] = canonicalMap[root];
+  });
+
+  // ★ 第二步：按客户汇总（使用标准名）
+  const custMap = {};
+
+  function aggregateByCust(scene, feeField){
+    const d = resultData[scene];
+    if(!d) return;
+    d.resultRows.forEach(row=>{
+      // 优先用 _cust，为空则用 _custAlias，都空才标记未知客户
+      let rawCust = String(row._cust||'').trim() || String(row._custAlias||'').trim() || '未知客户';
+      const cust = getCanonicalName(rawCust);
+      if(!custMap[cust]) custMap[cust] = {inbound:0, outbound:0, storage:0, ret:0};
+      const fee = parseFloat(row[feeField]||0) || 0;
+      if(scene==='inbound')  custMap[cust].inbound += fee;
+      if(scene==='outbound') custMap[cust].outbound += fee;
+      if(scene==='return')   custMap[cust].ret += fee;
+    });
+  }
+
+  aggregateByCust('inbound', '_fee');
+  aggregateByCust('outbound', '_total');
+  aggregateByCust('return', '_rowFee');
+
+  // 构建结果
+  summaryResult = Object.entries(custMap).map(([name, fees])=>{
+    const total = fees.inbound + fees.outbound + fees.storage + fees.ret;
+    return {custName: name, inbound: fees.inbound, outbound: fees.outbound, storage: fees.storage, ret: fees.ret, total: total};
+  });
+
+  if(summaryResult.length===0){
+    showToast('未找到可汇总的数据','warning');
+    return;
+  }
+
+  // 渲染预览表格
+  renderSummaryTable(summaryResult, period, warehouse);
+
+  const totalInbound  = summaryResult.reduce((s,r)=>s+r.inbound, 0);
+  const totalOutbound = summaryResult.reduce((s,r)=>s+r.outbound, 0);
+  const totalReturn   = summaryResult.reduce((s,r)=>s+r.ret, 0);
+
+  document.getElementById('summaryStats').style.display='';
+  document.getElementById('summaryCustCount').textContent    = summaryResult.length;
+  document.getElementById('summaryInboundTotal').textContent = '¥'+totalInbound.toFixed(2);
+  document.getElementById('summaryOutboundTotal').textContent= '¥'+totalOutbound.toFixed(2);
+  document.getElementById('summaryReturnTotal').textContent  = '¥'+totalReturn.toFixed(2);
+
+  document.getElementById('exportSummaryBtn').disabled = false;
+  showToast(`汇总完成！共 ${summaryResult.length} 个客户`,'success');
+}
+
+function renderSummaryTable(data, period, warehouse){
+  const hdrs = ['客户名称','入库费用(元)','出库费用(元)','仓储费用(元)','退货费用(元)','合计(元)','操作'];
+  let html = '<thead><tr>';
+  hdrs.forEach((h,i)=>{
+    const al = (i===0||i===hdrs.length-1) ? 'text-align:center' : 'text-align:right';
+    html += `<th style="${al}">${esc(h)}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  let tIn=0, tOut=0, tSto=0, tRet=0, tAll=0;
+  data.forEach((r,i)=>{
+    tIn+=r.inbound; tOut+=r.outbound; tSto+=r.storage; tRet+=r.ret; tAll+=r.total;
+    const bg = i%2===0 ? '' : 'style="background:rgba(243,238,255,0.5)"';
+    html += `<tr ${bg}>`;
+    html += `<td style="font-weight:700;color:var(--purple-dark);text-align:center">${esc(r.custName)}</td>`;
+    html += `<td style="text-align:right">${r.inbound.toFixed(2)}</td>`;
+    html += `<td style="text-align:right">${r.outbound.toFixed(2)}</td>`;
+    html += `<td style="text-align:right">${r.storage.toFixed(2)}</td>`;
+    html += `<td style="text-align:right">${r.ret.toFixed(2)}</td>`;
+    html += `<td style="font-weight:700;color:var(--purple-main);text-align:right;font-size:13px">¥${r.total.toFixed(2)}</td>`;
+    html += `<td style="text-align:center"><button class="btn btn-sm" style="background:linear-gradient(135deg,var(--purple-main),var(--purple-light));color:white;font-size:12px;padding:4px 14px;border-radius:8px;box-shadow:0 2px 8px rgba(108,63,197,0.25)" onclick="downloadCustBill(${i})">📥 下载</button></td>`;
+    html += '</tr>';
+  });
+
+  html += `<tr class="total-row"><td style="text-align:center"><strong>合计</strong></td>`;
+  html += `<td style="text-align:right"><strong>¥${tIn.toFixed(2)}</strong></td>`;
+  html += `<td style="text-align:right"><strong>¥${tOut.toFixed(2)}</strong></td>`;
+  html += `<td style="text-align:right"><strong>¥${tSto.toFixed(2)}</strong></td>`;
+  html += `<td style="text-align:right"><strong>¥${tRet.toFixed(2)}</strong></td>`;
+  html += `<td style="text-align:right"><strong style="font-size:14px;color:var(--purple-main)">¥${tAll.toFixed(2)}</strong></td>`;
+  html += '<td></td>';
+  html += '</tbody>';
+
+  document.getElementById('summaryResultTable').innerHTML = html;
+  document.getElementById('summaryResultArea').style.display='';
+}
+
+function downloadCustBill(idx){
+  if(!summaryResult || !summaryResult[idx]){
+    showToast('数据异常','warning'); return;
+  }
+  const custData = summaryResult[idx];
+  const custName = custData.custName;
+  const period    = document.getElementById('summaryPeriod').value.trim() || '2026/02/01-2026/02/28';
+  const warehouse = document.getElementById('summaryWarehouse').value.trim() || '马来仓';
+  const periodShort = period.replace(/\//g,'').substring(0,6);
+
+  const wb2 = XLSX.utils.book_new();
+
+  // 主 sheet：对账单模板（带样式：粗体居中）
+  const mainData = buildSummarySheetData(custName, custData, period, true);
+  const mainWs = XLSX.utils.aoa_to_sheet(mainData);
+  mainWs['!cols'] = [{wch:20},{wch:12},{wch:20},{wch:24},{wch:20}];
+
+  // 为对账单所有单元格设置粗体+居中样式
+  const boldCenterStyle = { font:{bold:true,sz:11}, alignment:{horizontal:'center',vertical:'center',wrapText:true} };
+  const boldCenterTitle = { font:{bold:true,sz:16}, alignment:{horizontal:'center',vertical:'center'} };
+  const boldCenterLabel = { font:{bold:true,sz:11}, alignment:{horizontal:'left',vertical:'center'} };
+  const boldCenterHeader = { font:{bold:true,sz:11}, alignment:{horizontal:'center',vertical:'center'}, fill:{fgColor:{rgb:'E8D5FF'}} };
+  const boldCenterTotal = { font:{bold:true,sz:12}, alignment:{horizontal:'center',vertical:'center'}, fill:{fgColor:{rgb:'D4B8FF'}} };
+
+  // Row1: 对账单标题 — 大号粗体居中
+  for(let c=0;c<5;c++){
+    const addr = XLSX.utils.encode_cell({r:0,c});
+    if(!mainWs[addr]) mainWs[addr]={v:'',t:'s'};
+    mainWs[addr].s = (c===2) ? boldCenterTitle : {};
+  }
+  // Row2: 客户名称行
+  for(let c=0;c<5;c++){
+    const addr = XLSX.utils.encode_cell({r:1,c});
+    if(!mainWs[addr]) mainWs[addr]={v:'',t:'s'};
+    mainWs[addr].s = boldCenterLabel;
+  }
+  // Row3: 表头行 — 粗体居中+浅紫背景
+  for(let c=0;c<5;c++){
+    const addr = XLSX.utils.encode_cell({r:2,c});
+    if(!mainWs[addr]) mainWs[addr]={v:'',t:'s'};
+    mainWs[addr].s = boldCenterHeader;
+  }
+  // Row4-7: 费用明细行 — 粗体居中，C列为数值格式
+  const numStyle = { font:{bold:true,sz:11}, alignment:{horizontal:'center',vertical:'center',wrapText:true}, numFmt:'#,##0.00' };
+  for(let r=3;r<=6;r++){
+    for(let c=0;c<5;c++){
+      const addr = XLSX.utils.encode_cell({r,c});
+      if(!mainWs[addr]) mainWs[addr]={v:'',t:'s'};
+      mainWs[addr].s = (c===2) ? numStyle : boldCenterStyle;
+    }
+  }
+  // Row8: 汇总行 — 粗体居中+紫背景，C列为数值格式
+  const numTotalStyle = { font:{bold:true,sz:12}, alignment:{horizontal:'center',vertical:'center'}, fill:{fgColor:{rgb:'D4B8FF'}}, numFmt:'#,##0.00' };
+  for(let c=0;c<5;c++){
+    const addr = XLSX.utils.encode_cell({r:7,c});
+    if(!mainWs[addr]) mainWs[addr]={v:'',t:'s'};
+    mainWs[addr].s = (c===2) ? numTotalStyle : boldCenterTotal;
+  }
+  // Row11: 收款信息行
+  const infoAddr = XLSX.utils.encode_cell({r:10,c:0});
+  if(mainWs[infoAddr]) mainWs[infoAddr].s = boldCenterLabel;
+
+  // 设置行高
+  mainWs['!rows'] = [{hpt:28},{hpt:24},{hpt:22},{hpt:20},{hpt:20},{hpt:20},{hpt:20},{hpt:24},{hpt:12},{hpt:12},{hpt:20}];
+
+  const mainName = buildSheetName(warehouse, period, custName);
+  XLSX.utils.book_append_sheet(wb2, mainWs, mainName);
+
+  // 子 sheet：入库明细
+  const inbD = resultData.inbound;
+  if(inbD && inbD.resultRows){
+    const inbRows = inbD.resultRows.filter(r=> matchCust(r, custName));
+    if(inbRows.length > 0){
+      const inbNewHdrs = ['三边之和(cm)','计费单价(元/件)','收费合计(元)'];
+      const inbData = [[...inbD.headers, ...inbNewHdrs]];
+      inbRows.forEach(r=> inbData.push([...r._row.map(c=>String(c??'')), r._sum3, r._unitPrice, r._fee]));
+      const inbWs = XLSX.utils.aoa_to_sheet(inbData);
+      inbWs['!cols'] = inbD.headers.map(()=>({wch:14})).concat(inbNewHdrs.map(()=>({wch:18})));
+      XLSX.utils.book_append_sheet(wb2, inbWs, '入库明细');
+    }
+  }
+
+  // 子 sheet：出库明细
+  const outD = resultData.outbound;
+  if(outD && outD.resultRows){
+    const outRows = outD.resultRows.filter(r=> matchCust(r, custName));
+    if(outRows.length > 0){
+      const outNewHdrs = ['计费角色','计费重量kg','最长边cm','首件费(元)','续件费(元)','收费合计(元)'];
+      const outData = [[...outD.headers, ...outNewHdrs]];
+      outRows.forEach(r=> outData.push([...r._row.map(c=>String(c??'')), r._roleLabel, r._chargeKgDisplay, r._maxEdgeDisplay, r._firstFee, r._contFee, r._total]));
+      const outWs = XLSX.utils.aoa_to_sheet(outData);
+      outWs['!cols'] = outD.headers.map(()=>({wch:14})).concat(outNewHdrs.map(()=>({wch:18})));
+      XLSX.utils.book_append_sheet(wb2, outWs, '出库明细');
+    }
+  }
+
+  // 子 sheet：退货明细
+  const retD = resultData.return;
+  if(retD && retD.resultRows){
+    const retRows = retD.resultRows.filter(r=> matchCust(r, custName));
+    if(retRows.length > 0){
+      const retNewHdrs = ['计费类型','上架费三边之和(cm)','退件入库费(元)','退件上架费(元)','收费合计(元)'];
+      const retData = [[...retD.headers, ...retNewHdrs]];
+      retRows.forEach(r=> retData.push([...r._row.map(c=>String(c??'')), r._billingType, r._sum3Display, r._inbFeeVal, r._shelfFeeVal, r._rowFee]));
+      const retWs = XLSX.utils.aoa_to_sheet(retData);
+      retWs['!cols'] = retD.headers.map(()=>({wch:14})).concat(retNewHdrs.map(()=>({wch:18})));
+      XLSX.utils.book_append_sheet(wb2, retWs, '退货明细');
+    }
+  }
+
+  // 子 sheet：入库异常（缺失尺寸SKU）
+  const inbExD = resultData.inbound;
+  if(inbExD && inbExD.resultRows && inbExD.missSkuSet && inbExD.missSkuSet.size > 0){
+    const inbExRows = inbExD.resultRows.filter(r=> matchCust(r, custName) && r._isZero);
+    if(inbExRows.length > 0){
+      const inbExNewHdrs = ['三边之和(cm)','计费单价(元/件)','收费合计(元)'];
+      const inbExData = [['异常原因：缺失尺寸', ...inbExNewHdrs]];
+      inbExRows.forEach(r=> inbExData.push([...r._row.map(c=>String(c??'')), r._sum3, r._unitPrice, r._fee]));
+      const inbExWs = XLSX.utils.aoa_to_sheet(inbExData);
+      inbExWs['!cols'] = [{wch:22}].concat(inbExD.headers.map(()=>({wch:14}))).concat(inbExNewHdrs.map(()=>({wch:18})));
+      XLSX.utils.book_append_sheet(wb2, inbExWs, '入库异常单');
+    }
+  }
+
+  // 子 sheet：出库异常（数量不一致）
+  const outExD = resultData.outbound;
+  if(outExD && outExD.qtyMismatchRows && outExD.qtyMismatchRows.length > 0){
+    const outExRows = outExD.qtyMismatchRows.filter(r=> matchCust({ _cust: r.cust, _custAlias: r._custAlias||'' }, custName));
+    if(outExRows.length > 0){
+      const outExHdrs = ['SKU','订单/关联单号','出库表数量','子表数量','差值','处理建议'];
+      const outExData = [outExHdrs];
+      outExRows.forEach(r=>{
+        const diff=r.outQty-r.subQty;
+        const diffStr=diff>0?`+${diff}（出库多）`:`${diff}（出库少）`;
+        outExData.push([r.sku, r.orderId, r.outQty, r.subQty, diffStr, '请核对原始订单']);
+      });
+      const outExWs = XLSX.utils.aoa_to_sheet(outExData);
+      outExWs['!cols'] = outExHdrs.map(()=>({wch:20}));
+      XLSX.utils.book_append_sheet(wb2, outExWs, '出库异常单');
+    }
+  }
+
+  // 子 sheet：退货异常（缺失尺寸SKU）
+  const retExD = resultData.return;
+  if(retExD && retExD.resultRows && retExD.missSkuSet && retExD.missSkuSet.size > 0){
+    const retExRows = retExD.resultRows.filter(r=> matchCust(r, custName) && r._isZero);
+    if(retExRows.length > 0){
+      const retExNewHdrs = ['计费类型','上架费三边之和(cm)','退件入库费(元)','退件上架费(元)','收费合计(元)'];
+      const retExData = [['异常原因：缺失尺寸', ...retExNewHdrs]];
+      retExRows.forEach(r=> retExData.push([...r._row.map(c=>String(c??'')), r._billingType, r._sum3Display, r._inbFeeVal, r._shelfFeeVal, r._rowFee]));
+      const retExWs = XLSX.utils.aoa_to_sheet(retExData);
+      retExWs['!cols'] = [{wch:22}].concat(retExD.headers.map(()=>({wch:14}))).concat(retExNewHdrs.map(()=>({wch:18})));
+      XLSX.utils.book_append_sheet(wb2, retExWs, '退货异常单');
+    }
+  }
+
+  const outName = `账单_${periodShort}_${warehouse}_${custName}.xlsx`;
+  XLSX.writeFile(wb2, outName);
+  showToast(`已导出：${outName}`,'success');
+}
+
+function exportSummaryExcel(){
+  if(!summaryResult || summaryResult.length===0){
+    showToast('请先生成汇总','warning'); return;
+  }
+  summaryResult.forEach((_, i)=> downloadCustBill(i));
+  showToast(`已导出 ${summaryResult.length} 个客户的独立账单文件`,'success');
+}
+
+function buildSheetName(warehouse, period, custName){
+  const periodShort = period.replace(/[/\-]/g,'').substring(0,6);
+  const whShort = warehouse.replace(/仓$/,'');
+  return `${periodShort}${whShort}${custName}`;
+}
+
+function buildSummarySheetData(custName, fees, period, hasTemplate){
+  // 模板结构（参考账单汇总.xlsx）:
+  // Row1: [,, '对账单',, 图片]
+  // Row2: ['客户名称：', custName,,'客户编码：','']
+  // Row3: ['收费类型','币种','金额','费用周期','备注']
+  // Row4: ['入库费用','CNY', 金额, period, '']
+  // Row5: ['出库费用','CNY', 金额, period, '']
+  // Row6: ['仓储费用','CNY', 0, period, '']
+  // Row7: ['退货费用','CNY', 金额, period, '']
+  // Row8: ['汇总','CNY', '=SUM(C4:C7)', period, '']
+  // Row9-10: 空
+  // Row11: ['我司收款信息如下：',,,,]
+  const data = [
+    ['','','对账单','',''],
+    ['客户名称：', custName,'','客户编码：',''],
+    ['收费类型','币种','金额','费用周期','备注'],
+    ['入库费用','CNY', {v:fees.inbound, t:'n', z:'#,##0.00'}, period,''],
+    ['出库费用','CNY', {v:fees.outbound, t:'n', z:'#,##0.00'}, period,''],
+    ['仓储费用','CNY', {v:fees.storage, t:'n', z:'#,##0.00'}, period,''],
+    ['退货费用','CNY', {v:fees.ret, t:'n', z:'#,##0.00'}, period,''],
+    ['汇总','CNY', {f:'SUM(C4:C7)', t:'n', z:'#,##0.00'}, period,''],
+    ['','','','',''],
+    ['','','','',''],
+    ['我司收款信息如下：','','','','']
+  ];
+  return data;
+}
+
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+</body>
+</html>
