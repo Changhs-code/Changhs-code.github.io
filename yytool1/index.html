@@ -1142,7 +1142,8 @@ function getContUnitPrice(chargeKg, maxEdgeCm, sha){
 function getReturnShelfPrice(sum3, sha){
   const p = getPrices().return.shelf;
   const pt = sha ? 'shareholder' : 'public';
-  if(sum3<=0)   return 0;
+  // ★ 尺寸缺失(sum3<=0)时按最低档计费
+  if(sum3<=0)   return p[pt][0];
   if(sum3<=55)  return p[pt][0];
   if(sum3<=130) return p[pt][1];
   if(sum3<=200) return p[pt][2];
@@ -1325,6 +1326,8 @@ function processOutbound(wb, filename){
   // ★ 数量异常记录
   const qtyMismatchRows = [];
 
+  // ★ 核心：出库表每行通过关联单号从子表匹配SKU，取计费重量最大的那个SKU的数据
+  // 保持一行出库记录 → 一个结果行，不拆分
   const resultRows = dataRows.map((row, rowIndex)=>{
     let sku  = String(row[skuI]||'').trim();
     const skuOriginal = sku; // 保留原始值用于显示
@@ -1339,7 +1342,7 @@ function processOutbound(wb, filename){
     const extOrd  = extOrdI >=0 ? String(row[extOrdI] ||'').trim() : '';
     const orderKey = linkOrd || extOrd || `__no_order_${rowIndex}`;
 
-    // ======= 获取尺寸和重量（直接从子表构建的 skuDimDB 获取）=======
+    // ======= 获取尺寸和重量 =======
     let l = 0, w = 0, h = 0;
     let rawWeightG = 0;
     let wtKg = 0;
@@ -1348,37 +1351,73 @@ function processOutbound(wb, filename){
     // 第1步：从 skuDimDB 获取（由 extractSkuDimensions 扫描子表构建）
     if(sku && skuDimDB[sku]){
       const d = skuDimDB[sku];
-      l = d.l || 0;
-      w = d.w || 0;
-      h = d.h || 0;
+      l = d.l || 0; w = d.w || 0; h = d.h || 0;
       if(d.weightKg){ wtKg = d.weightKg; rawWeightG = wtKg * 1000; }
       dimSource = 'SKU库';
     }
 
-    // 第2步：通过关联单号/订单编号匹配子表"来源单号"，同时校验数量
+    // 第2步：通过关联单号/订单编号匹配子表"来源单号"
     let orderItems = lookupOrderSku(linkOrd) || lookupOrderSku(extOrd);
 
     if(orderItems && orderItems.length>0){
-      const matched = sku ? orderItems.filter(it=>it.sku===sku) : orderItems;
-      if(matched.length>0){
-        const m = matched[0];
-        // 子表数据覆盖（优先用关联单号匹配的精确数据）
-        if(m.l>0||m.w>0||m.h>0){ l=m.l; w=m.w; h=m.h; dimSource='子表(来源单号)'; }
-        if(m.weightKg){ wtKg=m.weightKg; rawWeightG=wtKg*1000; }
-        // ★ 数量校验：子表中的数量 vs 出库表中的数量
-        const subQty = matched.reduce((s,it)=>s+it.qty, 0);
-        if(subQty>0 && qty>0 && subQty !== qty){
-          const usedOrd = (linkOrd && lookupOrderSku(linkOrd)) ? linkOrd : extOrd;
-          qtyMismatchRows.push({
-            sku: skuOriginal||'—',
-            orderId: usedOrd||'—',
-            outQty: qty,
-            subQty: subQty,
-            cust,
-            rowRef: row
-          });
+      // ★ 从子表所有SKU中，找到计费重量最大的那个
+      // 每个SKU独立算 max(该SKU实重, 该SKU体积重)，取最大的那个SKU的数据
+      let bestItem = null, bestChargeKg = -1;
+      orderItems.forEach(it=>{
+        const iWtKg = it.weightKg || 0;
+        const iHasDim = it.l>0 && it.w>0 && it.h>0;
+        const iVolKg = iHasDim ? (it.l*it.w*it.h)/6000 : 0;
+        const iChargeKg = (iWtKg>0 && iHasDim) ? Math.max(iWtKg, iVolKg) :
+                          (iWtKg>0 ? iWtKg : (iHasDim ? iVolKg : 0));
+        if(iChargeKg > bestChargeKg){
+          bestChargeKg = iChargeKg;
+          bestItem = it;
         }
+      });
+
+      if(bestItem){
+        // 如果出库表有SKU，优先匹配同名的；否则直接取最重的
+        let m = bestItem;
+        if(sku){
+          const exactMatch = orderItems.filter(it=>it.sku===sku);
+          if(exactMatch.length>0) m = exactMatch[0];
+        }
+        if(m.l>0||m.w>0||m.h>0){ l=Math.round(m.l*1000)/1000; w=Math.round(m.w*1000)/1000; h=Math.round(m.h*1000)/1000; dimSource='子表(来源单号)'; }
+        if(m.weightKg){ wtKg=Math.round(m.weightKg*1000)/1000; rawWeightG=wtKg*1000; }
+        // ★ 显示最重SKU的名称（如果出库表本身没SKU）
+        if(!sku) sku = bestItem.sku;
       }
+
+      // ★ 数量校验
+      const subQty = orderItems.reduce((s,it)=>s+it.qty, 0);
+      if(subQty>0 && qty>0 && subQty !== qty){
+        const usedOrd = (linkOrd && lookupOrderSku(linkOrd)) ? linkOrd : extOrd;
+        qtyMismatchRows.push({
+          sku: skuOriginal||sku||'—',
+          orderId: usedOrd||'—',
+          outQty: qty,
+          subQty: subQty,
+          cust,
+          rowRef: row
+        });
+      }
+    }
+
+    // 第3步：如果出库表本身有尺寸/重量列，用出库表的覆盖
+    if(lI>=0 && +row[lI]>0) l = +row[lI];
+    if(wI>=0 && +row[wI]>0) w = +row[wI];
+    if(hI>=0 && +row[hI]>0) h = +row[hI];
+    if((l>0||w>0||h>0) && dimSource==='未找到') dimSource = '出库表尺寸';
+
+    if(wtKgI>=0 && row[wtKgI]!=='' && row[wtKgI]!==undefined){
+      wtKg = (+row[wtKgI]||0); rawWeightG = wtKg*1000;
+      if(dimSource==='未找到') dimSource = '出库表重量';
+    } else if(wtGramI>=0 && row[wtGramI]!=='' && row[wtGramI]!==undefined){
+      wtKg = (+row[wtGramI]||0)/1000; rawWeightG=wtKg*1000;
+      if(dimSource==='未找到') dimSource = '出库表重量(g)';
+    } else if(wtFallI>=0 && row[wtFallI]!=='' && row[wtFallI]!==undefined){
+      wtKg = (+row[wtFallI]||0)/1000; rawWeightG=wtKg*1000;
+      if(dimSource==='未找到') dimSource = '出库表重量';
     }
 
     // ======= 缺数据降级策略 =======
@@ -1421,7 +1460,7 @@ function processOutbound(wb, filename){
     return {
       _row: row,
       _rowIndex: rowIndex,
-      _skuOriginal: skuOriginal,
+      _skuOriginal: skuOriginal || sku,
       _skuClean: sku,
       _orderKey: orderKey,
       _linkOrd: linkOrd,
@@ -1564,7 +1603,7 @@ function processOutbound(wb, filename){
     totalCont  += contFeeSum;
   });
 
-  resultData.outbound = {headers, resultRows, filename, sheetName, missSkuSet, qtyMismatchRows};
+  resultData.outbound = {headers, resultRows, filename, sheetName, missSkuSet, qtyMismatchRows, skuI};
 
   // ★ 分组诊断信息
   const groupIds = Object.keys(orderGroups);
@@ -1572,7 +1611,7 @@ function processOutbound(wb, filename){
   const contGroups = groupIds.filter(k => orderGroups[k].reduce((s, r) => s + r._qty, 0) > 4);
   const noOrderKeyCount = groupIds.filter(k => k.startsWith('__no_order_')).length;
 
-  renderOutboundTable(headers, resultRows, totalFee, totalFirst, totalCont, qtyMismatchRows);
+  renderOutboundTable(headers, resultRows, totalFee, totalFirst, totalCont, qtyMismatchRows, skuI);
 
   document.getElementById('outboundStats').style.display='';
   document.getElementById('outboundTotalRows').textContent = resultRows.length;
@@ -1605,8 +1644,8 @@ function processOutbound(wb, filename){
   showToast(`出库计费完成！${resultRows.length}行，合计 ¥${totalFee.toFixed(2)}`,'success');
 }
 
-function renderOutboundTable(headers, resultRows, totalFee, totalFirst, totalCont, qtyMismatchRows){
-  const newCols = ['计费角色','计费重量kg','最长边cm','首件费(元)','续件费(元)','收费合计(元)'];
+function renderOutboundTable(headers, resultRows, totalFee, totalFirst, totalCont, qtyMismatchRows, skuI){
+  const newCols = ['计费角色','SKU最长边(cm)','SKU最大值(kg)','出库费用(元)','续件费用(元)','收费合计(元)'];
   let html = '<thead><tr>';
   headers.forEach(h=>html+=`<th>${esc(h)}</th>`);
   newCols.forEach(h=>html+=`<th class="col-new-header">${h}</th>`);
@@ -1622,22 +1661,33 @@ function renderOutboundTable(headers, resultRows, totalFee, totalFirst, totalCon
     else if(isFree) cls = ' style="background:#f0f0f0;color:#999"';
 
     html += `<tr${cls}>`;
-    row._row.forEach(c=>html+=`<td>${esc(String(c))}</td>`);
+    row._row.forEach((c, ci)=>{
+      // ★ SKU列：显示子表匹配到的SKU名称
+      if(ci === skuI && row._skuClean){
+        html+=`<td>${esc(row._skuClean)}</td>`;
+      } else {
+        html+=`<td>${esc(String(c))}</td>`;
+      }
+    });
     // 计费角色
     const roleColor = isFirst ? 'color:#c0392b;font-weight:700' : (isCont ? 'color:#2980b9;font-weight:700' : '');
     html += `<td class="col-new" style="${roleColor};font-size:11px">${esc(row._roleLabel)}</td>`;
-    // 计费重量（带tooltip）
-    const detail = `体积重:${row._volKgStr} | 实重:${row._wtKgStr} | ${row._chargeNote} | 来源:${row._dimSource}` + (row._orderFeeDetail ? ` | 整单:${row._orderFeeDetail}` : '');
-    html += `<td class="col-new" title="${esc(detail)}" style="cursor:help">${row._chargeKgDisplay} <span style="font-size:10px;color:#aaa">ℹ</span></td>`;
-    html += `<td class="col-new">${row._maxEdgeDisplay}</td>`;
+    // SKU最长边（带tooltip）
+    const detail = `长:${row._l} 宽:${row._w} 高:${row._h} | 体积重:${row._volKgStr} | 实重:${row._wtKgStr} | ${row._chargeNote} | 来源:${row._dimSource}` + (row._orderFeeDetail ? ` | 整单:${row._orderFeeDetail}` : '');
+    html += `<td class="col-new" title="${esc(detail)}" style="cursor:help">${row._maxEdgeDisplay} <span style="font-size:10px;color:#aaa">ℹ</span></td>`;
+    // SKU最大值（计费重量 = max(实重, 体积重)）
+    html += `<td class="col-new">${row._chargeKgDisplay}</td>`;
+    // 出库费用（首件费）
     html += `<td class="col-new">${row._firstFee}</td>`;
+    // 续件费用
     html += `<td class="col-new">${row._contFee}</td>`;
+    // 收费合计 = 出库费用 + 续件费用
     html += `<td class="col-new" style="font-weight:700">${row._total}</td>`;
     html += '</tr>';
   });
 
   html += `<tr class="total-row"><td colspan="${headers.length}"><strong>合计</strong></td>`;
-  html += `<td class="col-new">—</td><td class="col-new">—</td><td class="col-new">—</td>`;
+  html += `<td class="col-new">—</td><td class="col-new">—</td>`;
   html += `<td class="col-new"><strong>¥${totalFirst.toFixed(2)}</strong></td>`;
   html += `<td class="col-new"><strong>¥${totalCont.toFixed(2)}</strong></td>`;
   html += `<td class="col-new"><strong>¥${totalFee.toFixed(2)}</strong></td>`;
@@ -1763,7 +1813,7 @@ function processReturn(wb, filename){
       totalInbFee += retInbFee;
     } else {
       if(sum3<=0 && sku) missSkuSet.add(sku);
-      sum3Display = sum3>0 ? sum3.toFixed(1) : '0（缺失）';
+      sum3Display = sum3>0 ? sum3.toFixed(1) : '0（缺失，按最低档）';
       const unitPrice = getReturnShelfPrice(sum3, sha);
       shelfFeeVal = unitPrice.toFixed(2);
       // ★ 收费合计 = 计费单价 × 已上架数量
@@ -1802,7 +1852,7 @@ function processReturn(wb, filename){
   document.getElementById('returnDupRows').textContent     = dupCount;
   document.getElementById('exportReturnBtn').disabled = false;
 
-  renderSkuWarning('return', missSkuSet, '退件上架费已计为0');
+  renderSkuWarning('return', missSkuSet, '退件上架费已按最低档计费');
   showToast(`退货计费完成！${resultRows.length}行，合计 ¥${totalFee.toFixed(2)}，重复${dupCount}条`,'success');
 }
 
@@ -1904,6 +1954,7 @@ function exportResult(scene){
   if(!d){ showToast('暂无计算结果','warning'); return; }
   const {headers, resultRows, filename, sheetName} = d;
   const wb2 = XLSX.utils.book_new();
+  const outSkuI = d.skuI; // 出库SKU列索引
 
   let newHdrs, rows2;
   if(scene==='inbound'){
@@ -1915,8 +1966,15 @@ function exportResult(scene){
     tot.push('—','—',tf.toFixed(2));
     rows2.push(tot);
   } else if(scene==='outbound'){
-    newHdrs=['SKU最长边(cm)','计费重量kg','出库费用(元)','续件费用(元)','收费合计(元)'];
-    rows2=resultRows.map(r=>[...r._row, r._maxEdge, r._chargeKg, r._firstFee, r._contFee, r._total]);
+    newHdrs=['SKU最长边(cm)','SKU最大值(kg)','出库费用(元)','续件费用(元)','收费合计(元)'];
+    rows2=resultRows.map(r=>{
+      // ★ 复制出库表原始行，但SKU列替换为子表匹配的SKU名称
+      const rowCopy = [...r._row];
+      if(outSkuI >= 0 && r._skuClean){
+        rowCopy[outSkuI] = r._skuClean;
+      }
+      return [...rowCopy, r._maxEdge, r._chargeKg, r._firstFee, r._contFee, r._total];
+    });
     const tf=resultRows.reduce((s,r)=>s+parseFloat(r._total||0),0);
     const tf1=resultRows.reduce((s,r)=>s+parseFloat(r._firstFee||0),0);
     const tf2=resultRows.reduce((s,r)=>s+parseFloat(r._contFee||0),0);
@@ -2327,9 +2385,9 @@ function downloadCustBill(idx){
   if(outD && outD.resultRows){
     const outRows = outD.resultRows.filter(r=> matchCust(r, custName));
     if(outRows.length > 0){
-      const outNewHdrs = ['计费角色','计费重量kg','最长边cm','首件费(元)','续件费(元)','收费合计(元)'];
+      const outNewHdrs = ['计费角色','SKU最长边(cm)','SKU最大值(kg)','出库费用(元)','续件费用(元)','收费合计(元)'];
       const outData = [[...outD.headers, ...outNewHdrs]];
-      outRows.forEach(r=> outData.push([...r._row.map(c=>String(c??'')), r._roleLabel, r._chargeKgDisplay, r._maxEdgeDisplay, r._firstFee, r._contFee, r._total]));
+      outRows.forEach(r=> outData.push([...r._row.map(c=>String(c??'')), r._roleLabel, r._maxEdgeDisplay, r._chargeKgDisplay, r._firstFee, r._contFee, r._total]));
       const outWs = XLSX.utils.aoa_to_sheet(outData);
       outWs['!cols'] = outD.headers.map(()=>({wch:14})).concat(outNewHdrs.map(()=>({wch:18})));
       XLSX.utils.book_append_sheet(wb2, outWs, '出库明细');
@@ -2388,7 +2446,7 @@ function downloadCustBill(idx){
     const retExRows = retExD.resultRows.filter(r=> matchCust(r, custName) && r._isZero);
     if(retExRows.length > 0){
       const retExNewHdrs = ['计费类型','上架费三边之和(cm)','退件入库费(元)','退件上架费(元)','收费合计(元)'];
-      const retExData = [['异常原因：缺失尺寸', ...retExNewHdrs]];
+      const retExData = [['异常原因：缺失尺寸（已按最低档计费）', ...retExNewHdrs]];
       retExRows.forEach(r=> retExData.push([...r._row.map(c=>String(c??'')), r._billingType, r._sum3Display, r._inbFeeVal, r._shelfFeeVal, r._rowFee]));
       const retExWs = XLSX.utils.aoa_to_sheet(retExData);
       retExWs['!cols'] = [{wch:22}].concat(retExD.headers.map(()=>({wch:14}))).concat(retExNewHdrs.map(()=>({wch:18})));
