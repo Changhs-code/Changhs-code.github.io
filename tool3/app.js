@@ -839,6 +839,7 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
   function pickValue(){ for(var i=0;i<arguments.length;i++){if(!isBlank2(arguments[i]))return arguments[i];}return null; }
   function setIfBlank2(row,key,val){ if(!row||!key)return; if(isBlank2(row[key])&&!isBlank2(val))row[key]=val; }
   function normalizeKey2(val){ if(val===null||val===undefined)return ''; return String(val).replace(/[\s\u200b\u200d\ufeff-]/g,'').trim(); }
+  function stripOrderSuffix2(val){ if(val===null||val===undefined)return ''; return String(val).replace(/-[^-]*$/,'').trim(); }
   function toNumber2(val){ if(val===null||val===undefined||val==='')return null; if(typeof val==='number')return val; var s=String(val).replace(/,/g,'').trim(); var m=s.match(/-?\d+(\.\d+)?/); return m?parseFloat(m[0]):null; }
   function round2fn(val){ if(val===null||val===undefined||isNaN(val))return null; return Math.round(val*100)/100; }
   function format2fn(val){ if(val===null||val===undefined||val==='')return ''; var num=Number(val); if(isNaN(num))return String(val); return num.toFixed(2); }
@@ -969,11 +970,12 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
       var firstIncomeRows2=incomeWb2?normalizeRows2(sheetToRows2(getSheetOrThrow2(incomeWb2,'第一档收入','收入情况'))):[];
 
       setProgress2(40,'构建映射关系...');
-      var missing2={sku:new Map(),quote:[],rate:new Map()};
+      var missing2={sku:new Map(),quote:[],rate:new Map(),fee:new Map()};
       var missingOrders2=new Set();
       var recordMissingSku2=function(oid,sku){if(!oid||!sku)return; if(!missing2.sku.has(oid))missing2.sku.set(oid,new Set()); missing2.sku.get(oid).add(sku);};
       var recordMissingQuote2=function(row){if(!row)return; missing2.quote.push(row);};
       var recordMissingRate2=function(currency,period,scene){if(!currency||!period)return; var key=currency+'||'+period+'||'+scene; if(!missing2.rate.has(key))missing2.rate.set(key,{currency:currency,period:period,scene:scene});};
+      var recordMissingFee2=function(scene,country,period){if(!scene||!country)return; var key=scene+'||'+country+'||'+(period||''); if(!missing2.fee.has(key))missing2.fee.set(key,{scene:scene,country:country,period:period});};
 
       var fxMap2={};
       fxRows2.forEach(function(r){var cur=normalizeCurrency2(r['原币']); var period=r['期间']; var rate=toNumber2(r['直接汇率']); if(cur&&period!=null&&rate!=null)fxMap2[cur+'||'+period]=rate;});
@@ -1030,7 +1032,21 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
 
       var computeFirstIncomeTotal2=function(oid,add){ if(!Object.prototype.hasOwnProperty.call(firstIncomeBaseByOrder2,oid))return null; var base=firstIncomeBaseByOrder2[oid]||0; var qty4=orderQtySum2[oid]||0; return base+add*qty4; };
       var extractAdd2=function(text){ var m=String(text).match(/\+\s*([0-9]*\.?[0-9]+)/); return m?parseFloat(m[1]):0; };
-      var resolveOrderKey2=function(){ for(var i2=0;i2<arguments.length;i2++){ var nk=normalizeKey2(arguments[i2]); if(!nk)continue; if(orderInfo2[nk])return nk; if(orderAlias2[nk])return orderAlias2[nk]; } return normalizeKey2(arguments[0])||''; };
+      var resolveOrderKey2=function(){
+        for(var i2=0;i2<arguments.length;i2++){
+          var raw=arguments[i2]==null?'':String(arguments[i2]).trim();
+          var variants=[raw];
+          var stripped=stripOrderSuffix2(raw);
+          if(stripped&&stripped!==raw)variants.push(stripped);
+          for(var j2=0;j2<variants.length;j2++){
+            var nk=normalizeKey2(variants[j2]);
+            if(!nk)continue;
+            if(orderInfo2[nk])return nk;
+            if(orderAlias2[nk])return orderAlias2[nk];
+          }
+        }
+        return normalizeKey2(stripOrderSuffix2(arguments[0])||arguments[0])||'';
+      };
       var evalSpecTotal2=function(oid,spec,nonShippingSpec,qty5){
         if(spec===null||spec===undefined||spec==='')return null;
         if(typeof spec==='number')return spec*qty5;
@@ -1104,8 +1120,10 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
         var retCur2=baseRet2!=null?billCur2:(retInfo2['币种']||billCur2);
 
         var headUnit2=country2?(headFeeMap2[country2]!=null?headFeeMap2[country2]:null):null;
+        if(country2&&headUnit2==null)recordMissingFee2('头程费用',country2,period2);
         if(headUnit2!=null&&qtyNum2!=null){ var headRate2=getRate2(headCurMap2[country2],period2,'头程费用'); if(headRate2!=null)setIfBlank2(row,'头程费用\n（人民币）',round2fn(headUnit2*qtyNum2*headRate2)); }
         var entryUnit2=country2?(entryFeeMap2[country2]!=null?entryFeeMap2[country2]:null):null;
+        if(country2&&entryUnit2==null)recordMissingFee2('入库费用',country2,period2);
         if(entryUnit2!=null&&qtyNum2!=null){ var entryRate2=getRate2(entryCurMap2[country2],period2,'入库费用'); if(entryRate2!=null)setIfBlank2(row,'入库费用\n（人民币）',round2fn(entryUnit2*qtyNum2*entryRate2)); }
 
         if(outFee2!=null){ var outRate2=getRate2(outCur2,period2,'出库费用'); if(outRate2!=null)setIfBlank2(row,'出库费用\n（人民币）',round2fn(outFee2*outRate2)); }
@@ -1113,7 +1131,7 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
         if(retFee2!=null){ var retRate2=getRate2(retCur2,period2,'退件费用'); if(retRate2!=null)setIfBlank2(row,'退件费用（人民币）',round2fn(retFee2*retRate2)); }
 
         if(period2!=null&&country2!=null){
-          var whKey2=period2+'||'+country2; var whTotal2=toNumber2(warehouseFeeMap2[whKey2]); var totalQty2=qtySumMap2[whKey2]||0;
+          var whKey2=period2+'||'+country2; var whTotal2=toNumber2(warehouseFeeMap2[whKey2]); if(whTotal2==null)recordMissingFee2('仓储费用',country2,period2); var totalQty2=qtySumMap2[whKey2]||0;
           var orderQty2=qtyNum2!=null?qtyNum2:1; var whAlloc2=(whTotal2!=null&&totalQty2>0)?(whTotal2/totalQty2*orderQty2):null;
           if(whAlloc2!=null){ var whCur2=warehouseCurMap2[whKey2]||'人民币'; if(normalizeCurrency2(whCur2)==='人民币'){setIfBlank2(row,'仓储费\n（人民币）',whAlloc2);}else{var wr=getRate2(whCur2,period2,'仓储费用'); if(wr!=null)setIfBlank2(row,'仓储费\n（人民币）',whAlloc2*wr);} }
         }
@@ -1178,6 +1196,8 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
       var recognized2=[]; if(billEntry)recognized2.push('账单信息：'+billEntry.name); if(orderEntry)recognized2.push('订单信息：'+orderEntry.name); if(expenseEntry)recognized2.push('支出情况：'+expenseEntry.name); if(incomeEntry)recognized2.push('收入情况：'+incomeEntry.name);
       if(recognized2.length)summary2.unshift('识别文件：'+recognized2.join('；')); if(missingNote2)summary2.push(missingNote2);
       if(missingOrders2.size){ var sample2=Array.from(missingOrders2).slice(0,20); summary2.push('订单信息缺失：共 '+missingOrders2.size+' 条，示例：'+sample2.join('、')+(missingOrders2.size>20?'…':'')); }
+      if(missing2.fee.size){ var sampleFee2=Array.from(missing2.fee.values()).slice(0,10).map(function(row){ return row.scene+':'+row.country+(row.period?('('+row.period+')'):''); }); summary2.push('费用配置缺失：共 '+missing2.fee.size+' 项，示例：'+sampleFee2.join('、')+(missing2.fee.size>10?'…':'')); }
+      if(missing2.rate.size){ var sampleRate2=Array.from(missing2.rate.values()).slice(0,10).map(function(row){ return row.currency+' '+row.period+' ('+row.scene+')'; }); summary2.push('汇率缺失：共 '+missing2.rate.size+' 项，示例：'+sampleRate2.join('、')+(missing2.rate.size>10?'…':'')); }
       logBox2.textContent=summary2.join('\n');
       downloadBtn.disabled=false;
 
