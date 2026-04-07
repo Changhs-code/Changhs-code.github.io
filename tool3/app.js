@@ -851,15 +851,93 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
   function sheetToRows2(sheet){ return XLSX.utils.sheet_to_json(sheet,{defval:null}); }
   function normalizeRows2(rows){ return rows.map(function(row){var out={};Object.keys(row).forEach(function(k){out[typeof k==='string'?k.trim():k]=row[k];});return out;}); }
   function rowHasHeader2(row, header){ return (row||[]).some(function(v){ return (typeof v==='string'?v.trim():v)===header; }); }
+  function getSheetAoA2(sheet){ return XLSX.utils.sheet_to_json(sheet,{header:1,defval:null}); }
   function sheetLooksLikeOrder2(sheet){
     if(!sheet) return false;
-    var aoa = XLSX.utils.sheet_to_json(sheet,{header:1,defval:null});
+    var aoa = getSheetAoA2(sheet);
     var limit = Math.min(aoa.length, 8);
     for(var i=0;i<limit;i++){
       var row = aoa[i] || [];
       if(!rowHasHeader2(row,'订单编号')) continue;
       if(rowHasHeader2(row,'卖家订单号') || rowHasHeader2(row,'产品SKU') || rowHasHeader2(row,'客户经理') || rowHasHeader2(row,'订单状态')) return true;
     }
+    return false;
+  }
+  function sheetLooksLikeBillOut2(sheet){
+    if(!sheet) return false;
+    var aoa = getSheetAoA2(sheet);
+    var limit = Math.min(aoa.length, 6);
+    for(var i=0;i<limit;i++){ var row=aoa[i]||[]; if(rowHasHeader2(row,'国家')&&rowHasHeader2(row,'期间')&&rowHasHeader2(row,'系统单号')&&rowHasHeader2(row,'订单编号')&&rowHasHeader2(row,'数量')) return true; }
+    return false;
+  }
+  function sheetLooksLikeBillTail2(sheet){
+    if(!sheet) return false;
+    var aoa = getSheetAoA2(sheet);
+    var limit = Math.min(aoa.length, 6);
+    for(var i=0;i<limit;i++){ var row=aoa[i]||[]; if(rowHasHeader2(row,'订单编号')&&rowHasHeader2(row,'出库费用')&&rowHasHeader2(row,'尾程费用')) return true; }
+    return false;
+  }
+  function sheetLooksLikeBillRet2(sheet){
+    if(!sheet) return false;
+    var aoa = getSheetAoA2(sheet);
+    var limit = Math.min(aoa.length, 6);
+    for(var i=0;i<limit;i++){ var row=aoa[i]||[]; if(rowHasHeader2(row,'退货单号')&&rowHasHeader2(row,'退货金额')) return true; }
+    return false;
+  }
+  function sheetLooksLikeHeadFee2(sheet){
+    if(!sheet) return false;
+    var aoa = getSheetAoA2(sheet);
+    var limit = Math.min(aoa.length, 6);
+    for(var i=0;i<limit;i++){ var row=aoa[i]||[]; if(rowHasHeader2(row,'国家')&&rowHasHeader2(row,'头程费用')) return true; }
+    return false;
+  }
+  function sheetLooksLikeEntryFee2(sheet){
+    if(!sheet) return false;
+    var aoa = getSheetAoA2(sheet);
+    var limit = Math.min(aoa.length, 6);
+    for(var i=0;i<limit;i++){ var row=aoa[i]||[]; if(rowHasHeader2(row,'国家')&&rowHasHeader2(row,'入库费用')) return true; }
+    return false;
+  }
+  function sheetLooksLikeWarehouse2(sheet){
+    if(!sheet) return false;
+    var aoa = getSheetAoA2(sheet);
+    var limit = Math.min(aoa.length, 6);
+    for(var i=0;i<limit;i++){ var row=aoa[i]||[]; if(rowHasHeader2(row,'期间')&&rowHasHeader2(row,'国家')&&rowHasHeader2(row,'仓储费用')) return true; }
+    return false;
+  }
+  function sheetLooksLikeFx2(sheet){
+    if(!sheet) return false;
+    var aoa = getSheetAoA2(sheet);
+    var limit = Math.min(aoa.length, 6);
+    for(var i=0;i<limit;i++){ var row=aoa[i]||[]; if(rowHasHeader2(row,'原币')&&rowHasHeader2(row,'直接汇率')&&rowHasHeader2(row,'期间')) return true; }
+    return false;
+  }
+  function sheetLooksLikeProductCost2(sheet){
+    if(!sheet) return false;
+    var aoa = getSheetAoA2(sheet);
+    var limit = Math.min(aoa.length, 6);
+    for(var i=0;i<limit;i++){ var row=aoa[i]||[]; if(rowHasHeader2(row,'聚水潭旧编码')&&rowHasHeader2(row,'成本价')) return true; }
+    return false;
+  }
+  function sheetLooksLikeQuote2(sheet){
+    if(!sheet) return false;
+    var aoa = getSheetAoA2(sheet);
+    var limit = Math.min(aoa.length, 6);
+    for(var i=0;i<limit;i++){ var row=aoa[i]||[]; if(rowHasHeader2(row,'国家')&&rowHasHeader2(row,'件数（n）/订单')&&rowHasHeader2(row,'包邮')&&rowHasHeader2(row,'不包邮')) return true; }
+    return false;
+  }
+  function sheetLooksLikeCIncome2(sheet){
+    if(!sheet) return false;
+    var aoa = getSheetAoA2(sheet);
+    var limit = Math.min(aoa.length, 6);
+    for(var i=0;i<limit;i++){ var row=aoa[i]||[]; if(rowHasHeader2(row,'卖家订单号')&&rowHasHeader2(row,'人民币')) return true; }
+    return false;
+  }
+  function sheetLooksLikeFirstIncome2(sheet){
+    if(!sheet) return false;
+    var aoa = getSheetAoA2(sheet);
+    var limit = Math.min(aoa.length, 6);
+    for(var i=0;i<limit;i++){ var row=aoa[i]||[]; if(rowHasHeader2(row,'聚水潭旧编码')&&rowHasHeader2(row,'第一档价格')) return true; }
     return false;
   }
 
@@ -875,6 +953,24 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
         var sn = sheetNames[k];
         var sheet = wb.Sheets[sn];
         if(sheetLooksLikeOrder2(sheet)) return sheet;
+      }
+    }
+    if(label==='账单信息'){
+      for(var k2=0;k2<sheetNames.length;k2++){
+        var sn2=sheetNames[k2], sheet2=wb.Sheets[sn2];
+        if((names.indexOf('出库单')>=0&&sheetLooksLikeBillOut2(sheet2))||(names.indexOf('出库尾程')>=0&&sheetLooksLikeBillTail2(sheet2))||(names.indexOf('退货费用')>=0&&sheetLooksLikeBillRet2(sheet2))) return sheet2;
+      }
+    }
+    if(label==='支出情况'){
+      for(var k3=0;k3<sheetNames.length;k3++){
+        var sn3=sheetNames[k3], sheet3=wb.Sheets[sn3];
+        if((names.indexOf('头程费用')>=0&&sheetLooksLikeHeadFee2(sheet3))||(names.indexOf('入库费用')>=0&&sheetLooksLikeEntryFee2(sheet3))||(names.indexOf('仓储费用')>=0&&sheetLooksLikeWarehouse2(sheet3))||(names.indexOf('汇率')>=0&&sheetLooksLikeFx2(sheet3))||(names.indexOf('产品成本')>=0&&sheetLooksLikeProductCost2(sheet3))) return sheet3;
+      }
+    }
+    if(label==='收入情况'){
+      for(var k4=0;k4<sheetNames.length;k4++){
+        var sn4=sheetNames[k4], sheet4=wb.Sheets[sn4];
+        if((names.indexOf('报价')>=0&&sheetLooksLikeQuote2(sheet4))||(names.indexOf('C端收入')>=0&&sheetLooksLikeCIncome2(sheet4))||(names.indexOf('第一档收入')>=0&&sheetLooksLikeFirstIncome2(sheet4))) return sheet4;
       }
     }
     throw new Error((label||'')+'缺少工作表：'+names.join(' / '));
