@@ -850,6 +850,18 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
   function readWorkbook2(file){ return file.arrayBuffer().then(function(buf){return XLSX.read(buf,{type:'array'});}); }
   function sheetToRows2(sheet){ return XLSX.utils.sheet_to_json(sheet,{defval:null}); }
   function normalizeRows2(rows){ return rows.map(function(row){var out={};Object.keys(row).forEach(function(k){out[typeof k==='string'?k.trim():k]=row[k];});return out;}); }
+  function rowHasHeader2(row, header){ return (row||[]).some(function(v){ return (typeof v==='string'?v.trim():v)===header; }); }
+  function sheetLooksLikeOrder2(sheet){
+    if(!sheet) return false;
+    var aoa = XLSX.utils.sheet_to_json(sheet,{header:1,defval:null});
+    var limit = Math.min(aoa.length, 8);
+    for(var i=0;i<limit;i++){
+      var row = aoa[i] || [];
+      if(!rowHasHeader2(row,'订单编号')) continue;
+      if(rowHasHeader2(row,'卖家订单号') || rowHasHeader2(row,'产品SKU') || rowHasHeader2(row,'客户经理') || rowHasHeader2(row,'订单状态')) return true;
+    }
+    return false;
+  }
 
   function getSheetOrThrow2(wb, name, label) {
     var names = Array.isArray(name) ? name : [name];
@@ -858,6 +870,13 @@ document.querySelectorAll('.nav-item').forEach(function(item) {
     for(var i=0;i<names.length;i++){ var key=String(names[i]).trim(); if(nameMap.has(key))return wb.Sheets[nameMap.get(key)]; }
     for(var j=0;j<names.length;j++){ var key2=String(names[j]).trim(); var hit=sheetNames.find(function(s){return String(s).includes(key2);}); if(hit)return wb.Sheets[hit]; }
     if(label){ var hit2=sheetNames.find(function(s){return String(s).includes(label);}); if(hit2)return wb.Sheets[hit2]; }
+    if(label==='订单信息'){
+      for(var k=0;k<sheetNames.length;k++){
+        var sn = sheetNames[k];
+        var sheet = wb.Sheets[sn];
+        if(sheetLooksLikeOrder2(sheet)) return sheet;
+      }
+    }
     throw new Error((label||'')+'缺少工作表：'+names.join(' / '));
   }
 
