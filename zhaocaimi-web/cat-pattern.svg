@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- 胖嘟嘟猫咪图案 -->
+  <defs>
+    <pattern id="catPattern" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
+      <!-- 猫咪1 -->
+      <g transform="translate(10,10) scale(0.6)">
+        <!-- 身体 -->
+        <ellipse cx="50" cy="55" rx="35" ry="30" fill="#E8D5F2" opacity="0.6"/>
+        <!-- 头 -->
+        <circle cx="50" cy="35" r="22" fill="#E8D5F2" opacity="0.6"/>
+        <!-- 耳朵 -->
+        <ellipse cx="35" cy="22" rx="8" ry="12" fill="#D4B8E8" opacity="0.6" transform="rotate(-20 35 22)"/>
+        <ellipse cx="65" cy="22" rx="8" ry="12" fill="#D4B8E8" opacity="0.6" transform="rotate(20 65 22)"/>
+        <!-- 眼睛 -->
+        <circle cx="42" cy="32" r="3" fill="#6B4E71"/>
+        <circle cx="58" cy="32" r="3" fill="#6B4E71"/>
+        <!-- 腮红 -->
+        <ellipse cx="38" cy="40" rx="4" ry="2" fill="#FFB6C1" opacity="0.6"/>
+        <ellipse cx="62" cy="40" rx="4" ry="2" fill="#FFB6C1" opacity="0.6"/>
+        <!-- 嘴巴 -->
+        <path d="M 47 38 Q 50 42 53 38" stroke="#6B4E71" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        <!-- 胡须 -->
+        <line x1="25" y1="35" x2="15" y2="32" stroke="#D4B8E8" stroke-width="1" opacity="0.5"/>
+        <line x1="25" y1="40" x2="15" y2="42" stroke="#D4B8E8" stroke-width="1" opacity="0.5"/>
+        <line x1="75" y1="35" x2="85" y2="32" stroke="#D4B8E8" stroke-width="1" opacity="0.5"/>
+        <line x1="75" y1="40" x2="85" y2="42" stroke="#D4B8E8" stroke-width="1" opacity="0.5"/>
+      </g>
+      
+      <!-- 猫咪2 - 不同颜色 -->
+      <g transform="translate(60,60) scale(0.5)">
+        <ellipse cx="50" cy="55" rx="35" ry="30" fill="#FAD4E4" opacity="0.5"/>
+        <circle cx="50" cy="35" r="22" fill="#FAD4E4" opacity="0.5"/>
+        <ellipse cx="35" cy="22" rx="8" ry="12" fill="#F8C8DC" opacity="0.5" transform="rotate(-20 35 22)"/>
+        <ellipse cx="65" cy="22" rx="8" ry="12" fill="#F8C8DC" opacity="0.5" transform="rotate(20 65 22)"/>
+        <circle cx="42" cy="32" r="3" fill="#8B6F8B"/>
+        <circle cx="58" cy="32" r="3" fill="#8B6F8B"/>
+        <ellipse cx="38" cy="40" rx="4" ry="2" fill="#FFB6C1" opacity="0.5"/>
+        <ellipse cx="62" cy="40" rx="4" ry="2" fill="#FFB6C1" opacity="0.5"/>
+        <path d="M 47 38 Q 50 42 53 38" stroke="#8B6F8B" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      </g>
+      
+      <!-- 小装饰 -->
+      <circle cx="85" cy="15" r="3" fill="#E8D5F2" opacity="0.4"/>
+      <circle cx="15" cy="85" r="2" fill="#FAD4E4" opacity="0.4"/>
+      <circle cx="90" cy="90" r="2.5" fill="#D4B8E8" opacity="0.3"/>
+    </pattern>
+  </defs>
+  <rect width="200" height="200" fill="url(#catPattern)"/>
+</svg>
