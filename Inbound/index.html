@@ -1,0 +1,4325 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>海外仓头程入库情况</title>
+<style>
+  :root {
+    /* Macaron 紫灰配色 */
+    --primary: #A78BFA;
+    --primary-dark: #6D28D9;
+    --bg: #F7F5FB;
+    --card: #FFFFFF;
+    --border: #E9D5FF;
+    --text: #111827;
+    --text-muted: #6B7280;
+    --success: #22C55E;
+    --danger: #F43F5E;
+    --shadow-sm: 0 1px 6px rgba(15, 23, 42, 0.06);
+    --shadow-md: 0 10px 24px rgba(15, 23, 42, 0.10);
+    --radius: 12px;
+    --content-max: 1180px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Microsoft YaHei', 'PingFang SC', 'Arial', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Header */
+  .app-header {
+    background: linear-gradient(135deg, #F5F3FF, #EDE9FE);
+    color: var(--text);
+    padding: 20px 24px;
+    box-shadow: 0 10px 28px rgba(109, 40, 217, 0.10);
+    position: relative;
+    z-index: 20;
+  }
+  .app-header h1 { font-size: 26px; font-weight: 900; letter-spacing: .2px; }
+  .app-header p { font-size: 13px; opacity: .88; margin-top: 8px; }
+  #warehouse-select option { background: #fff; color: var(--text); }
+  .header-inner {
+    display:flex; align-items:center; justify-content:space-between; gap: 16px;
+    max-width: var(--content-max);
+    margin: 0 auto;
+  }
+  .brand {
+    display:flex; align-items:flex-start; gap: 10px;
+  }
+  .brand-badge {
+    width: 34px; height: 34px; border-radius: 12px;
+    background: rgba(109, 40, 217, 0.12);
+    border: none;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow: none;
+    flex-shrink: 0;
+  }
+  .brand-badge span { font-size: 16px; line-height: 1; }
+  .title-en {
+    font-size: 13px;
+    letter-spacing: 0.22em;
+    font-weight: 800;
+    color: #6D28D9;
+    opacity: .95;
+    text-transform: uppercase;
+  }
+  .title-cn { margin-top: 10px; }
+  .title-cn { color: #111827; }
+  .header-actions {
+    display:flex;
+    align-items:center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .warehouse-pill {
+    display:flex; align-items:center; gap: 10px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: #fff;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+  }
+  .warehouse-pill label { font-size:12px; font-weight:800; color: #6B7280; }
+  #warehouse-select {
+    padding: 6px 26px 6px 8px !important;
+    border-radius: 10px !important;
+    border: none !important;
+    color: #111827 !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    outline: none !important;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, rgba(17,24,39,.85) 50%),
+                      linear-gradient(135deg, rgba(17,24,39,.85) 50%, transparent 50%);
+    background-position: calc(100% - 14px) 55%, calc(100% - 9px) 55%;
+    background-size: 6px 6px, 6px 6px;
+    background-repeat: no-repeat;
+    font-size: 13px !important;
+    font-weight: 800 !important;
+    min-width: 170px;
+  }
+  #warehouse-select:focus-visible { outline: none !important; }
+  .workflow-warehouse {
+    margin: 0 8px 10px;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .workflow-warehouse .warehouse-pill {
+    display: flex;
+    width: 100%;
+    padding: 0;
+    border: none;
+    box-shadow: none;
+    gap: 6px;
+  }
+  .workflow-warehouse .warehouse-pill label {
+    min-width: 38px;
+    font-size: 12px;
+  }
+  .workflow-warehouse #warehouse-select {
+    min-width: 0;
+    width: 100%;
+    font-size: 13px !important;
+    font-weight: 800 !important;
+  }
+
+  .help-btn {
+    border: none !important;
+    background: rgba(255,255,255,.85) !important;
+    color: #6D28D9 !important;
+    box-shadow: none !important;
+    padding: 10px 14px !important;
+    border-radius: 999px !important;
+    font-weight: 800 !important;
+    letter-spacing: .02em;
+    backdrop-filter: blur(10px);
+  }
+  .help-btn:hover { background: rgba(255,255,255,.95) !important; }
+  .help-btn-fixed {
+    position: absolute;
+    top: 14px;
+    right: 18px;
+    z-index: 101;
+  }
+
+  /* Help modal */
+  .modal-mask {
+    position: fixed; inset: 0;
+    background: rgba(17, 24, 39, 0.45);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    z-index: 99999;
+  }
+  .modal-mask.show { display: flex; }
+  .modal {
+    width: min(920px, 100%);
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 22px 60px rgba(15, 23, 42, 0.25);
+    border: 1px solid rgba(233, 213, 255, 0.9);
+    overflow: hidden;
+  }
+  .modal-hd {
+    display:flex; align-items:center; justify-content:space-between; gap: 10px;
+    padding: 16px 18px;
+    background: linear-gradient(135deg, rgba(167, 139, 250, 0.20), rgba(109, 40, 217, 0.10));
+  }
+  .modal-hd h3 { font-size: 16px; font-weight: 900; color: #111827; }
+  .modal-close {
+    border: none;
+    background: rgba(17, 24, 39, 0.06);
+    color: #111827;
+    border-radius: 10px;
+    padding: 8px 10px;
+    cursor: pointer;
+    font-weight: 800;
+  }
+  .modal-body {
+    padding: 16px 18px 18px;
+    color: #111827;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .modal-body .sec {
+    margin-top: 12px;
+    padding: 12px 12px;
+    border-radius: 12px;
+    background: #FAF7FF;
+    border: 1px solid rgba(233, 213, 255, 0.9);
+  }
+  .modal-body .sec-title {
+    font-weight: 900;
+    color: #4C1D95;
+    margin-bottom: 6px;
+  }
+  .modal-body ul { padding-left: 18px; }
+  .modal-body li { margin: 6px 0; }
+
+  /* History editing */
+  details.editing td.editable .cell-text { display: none; }
+  details:not(.editing) td.editable .cell-edit { display: none; }
+  .hist-input {
+    width: 100%;
+    padding: 5px 8px;
+    border-radius: 10px;
+    border: 1px solid rgba(233, 213, 255, 0.9);
+    background: #fff;
+    color: #111827;
+    font-size: 11px;
+  }
+  .hist-input:focus { outline: 3px solid rgba(167, 139, 250, 0.28); border-color: rgba(167, 139, 250, 0.65); }
+  .hist-edit-btn {
+    padding: 6px 10px !important;
+    border-radius: 999px !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    box-shadow: none !important;
+  }
+  .bid-note-input {
+    width: 100%;
+    padding: 6px 0;
+    border-radius: 0;
+    border: none;
+    background: transparent;
+    font-size: 12px;
+    color: #111827;
+    outline: none;
+    box-shadow: none;
+  }
+  .bid-note-input::placeholder { color: #9CA3AF; }
+  .bid-note-status {
+    font-size: 11px;
+    color: #6B7280;
+    min-width: 54px;
+    text-align: left;
+  }
+  .bid-summary-row1 {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .bid-summary-right {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .bid-summary-row2 {
+    margin-top: 10px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+  }
+  .bid-note-label {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--text-muted);
+    padding-top: 7px;
+    flex-shrink: 0;
+  }
+  .bid-note-wrap {
+    flex: 1;
+    min-width: 280px;
+    padding: 0 0 4px;
+    border-bottom: 1px solid rgba(233, 213, 255, 0.9);
+  }
+
+  /* Step sidebar (vertical) */
+  .step-layout {
+    display: flex;
+    min-height: calc(100vh - 80px);
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+  .step-layout > .container {
+    min-width: 0;
+  }
+  .step-sidebar {
+    width: 170px;
+    flex-shrink: 0;
+    background: transparent;
+    border-right: none;
+    padding: 14px 0 24px;
+    position: sticky;
+    top: 12px;
+    align-self: flex-start;
+    height: fit-content;
+  }
+  .sidebar-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 18px;
+    position: relative;
+    cursor: default;
+  }
+  .sidebar-step .step-n {
+    width: 28px; height: 28px; border-radius: 50%;
+    font-size: 12px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; flex-shrink: 0;
+    background: #D1D5DB;
+    transition: background .2s;
+  }
+  .sidebar-step.active .step-n { background: var(--primary); box-shadow: 0 0 0 4px rgba(167, 139, 250, 0.28); }
+  .sidebar-step.done .step-n { background: var(--success); }
+  .sidebar-step.active .step-label { color: var(--primary); font-weight: 700; }
+  .sidebar-step.done .step-label { color: var(--success); }
+  .sidebar-step.future { opacity: .45; }
+  .sidebar-step .step-label {
+    font-size: 13px; font-weight: 600;
+    color: var(--text-muted);
+    line-height: 1.4;
+    padding-top: 4px;
+  }
+  /* Vertical connector line */
+  .sidebar-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 33px; top: 40px;
+    width: 2px; height: calc(100% - 10px);
+    background: #E5E7EB;
+  }
+  .sidebar-step.done:not(:last-child)::after { background: var(--success); }
+  .sidebar-step.active:not(:last-child)::after { background: #E5E7EB; }
+
+  /* Tab bar */
+  .tab-bar {
+    display: flex;
+    gap: 4px;
+    background: rgba(255,255,255,.72);
+    border-bottom: 1px solid rgba(233, 213, 255, 0.8);
+    padding: 10px 24px;
+    backdrop-filter: blur(10px);
+    position: relative;
+    z-index: 15;
+  }
+  .tab-btn {
+    padding: 10px 16px;
+    font-size: 13px; font-weight: 600;
+    color: var(--text-muted);
+    border: none; background: none;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all .2s;
+    border-radius: 10px;
+  }
+  .tab-btn:hover { color: var(--primary-dark); background: rgba(167, 139, 250, 0.10); }
+  .tab-btn.active { color: var(--primary-dark); border-bottom-color: var(--primary); background: rgba(167, 139, 250, 0.12); }
+
+  button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible {
+    outline: 3px solid rgba(167, 139, 250, 0.35);
+    outline-offset: 2px;
+  }
+
+  .tab-content { display: none; }
+  .tab-content.active {
+    display: block;
+    height: calc(100vh - var(--chrome-height, 124px));
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  #tab-c-freight.tab-content.active {
+    overflow: hidden;
+  }
+  .tab-content .container {
+    max-width: var(--content-max);
+    margin: 0 auto;
+    padding: 12px 20px 12px;
+  }
+  #tab-c-freight .container {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    height: 100%;
+  }
+  .freight-inline-frame {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    border: 0;
+    border-radius: 12px;
+    overflow: auto;
+    background: #fff;
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Container */
+  .container { max-width: var(--content-max); margin: 0 auto; padding: 22px 20px 60px; }
+
+  /* Wider layout on large screens */
+  @media (min-width: 1440px) {
+    :root { --content-max: 1240px; }
+    .step-sidebar { width: 200px; }
+  }
+
+  /* Step sections */
+  .step-section {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 22px;
+    margin-bottom: 18px;
+    transition: opacity .3s;
+    box-shadow: var(--shadow-sm);
+  }
+  .step-section.future { opacity: .45; pointer-events: none; }
+  .step-section.done { opacity: .8; }
+  .step-section.current { opacity: 1; pointer-events: all; }
+
+  /* Step header */
+  .step-hd {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 14px;
+  }
+  .step-n {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700; color: #fff; flex-shrink: 0;
+  }
+  .step-section.future .step-n { background: #D1D5DB; }
+  .step-section.current .step-n { background: var(--primary); }
+  .step-section.done .step-n { background: var(--success); }
+  .step-title { font-size: 16px; font-weight: 700; color: var(--primary-dark); }
+  .step-section.done .step-title { color: var(--success); }
+  .step-badge {
+    margin-left: auto;
+    background: var(--success); color: #fff;
+    font-size: 11px; font-weight: 700;
+    padding: 3px 10px; border-radius: 20px;
+  }
+
+  /* Upload button */
+  .upload-btn {
+    display: inline-block; position: relative; overflow: hidden;
+    padding: 9px 22px;
+    background: var(--primary); color: #fff;
+    border: none; border-radius: 8px;
+    font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: background .2s;
+    vertical-align: middle;
+    box-shadow: 0 10px 20px rgba(167, 139, 250, 0.28);
+  }
+  .upload-btn:hover { background: var(--primary-dark); }
+  .upload-btn input[type=file] {
+    position: absolute; right: 0; top: 0;
+    font-size: 100px; opacity: 0; cursor: pointer; margin: 0;
+    width: 100%; height: 100%;
+  }
+
+  /* Loaded state */
+  .loaded-info {
+    display: flex; align-items: center; gap: 12px;
+    flex-wrap: wrap;
+    background: #F8FAFC; border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px;
+    font-size: 13px;
+  }
+  .loaded-info .fname { font-weight: 700; color: var(--primary-dark); }
+  .loaded-info .reset-btn {
+    margin-left: auto;
+    background: #FFF1F2; color: #9F1239;
+    border: 1px solid #FECDD3; border-radius: 8px;
+    padding: 5px 10px; font-size: 11px; font-weight: 700;
+    cursor: pointer;
+  }
+  .loaded-info .reset-btn:hover { background: #FFE4E6; }
+
+  /* Chips row */
+  .chip-row {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    margin-top: 8px;
+  }
+  .chip {
+    background: var(--primary); color: #fff;
+    padding: 3px 10px; border-radius: 20px;
+    font-size: 12px; font-family: 'Courier New', monospace;
+  }
+  .chip.green { background: var(--success); }
+  .chip.orange { background: #FD7E14; }
+  .chip-label { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+
+  /* Match info */
+  .match-stat {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #F3E8FF; border: 1px solid rgba(167, 139, 250, 0.32);
+    border-radius: 6px; padding: 4px 12px;
+    font-size: 12px; font-weight: 600; color: var(--primary-dark);
+    margin-right: 6px; margin-top: 6px;
+  }
+  .match-stat.ok { background: #E2EFDA; border-color: #70AD47; color: #375623; }
+  .match-stat.ng { background: #FCE4D6; border-color: #ED7D31; color: #C00000; }
+
+  /* Continue button */
+  .continue-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    margin-top: 18px;
+    padding: 11px 26px;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: #fff; border: none; border-radius: 10px;
+    font-size: 14px; font-weight: 700; cursor: pointer;
+    box-shadow: 0 12px 24px rgba(109, 40, 217, 0.18);
+    transition: all .2s;
+  }
+  .continue-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(46,91,182,.4);
+  }
+
+  /* Copy button */
+  .copy-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+  .copy-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 16px;
+    background: var(--success); color: #fff;
+    border: none; border-radius: 8px;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+  }
+  .copy-btn:hover { background: #1e7e34; }
+  .copied-msg { font-size: 12px; color: var(--success); font-weight: 600; display: none; }
+  .copied-msg.show { display: inline; }
+
+  /* Diagnostic */
+  .diag-box {
+    background: #FFF8F0; border: 1px solid #FCD34D;
+    border-radius: 8px; padding: 10px 14px;
+    font-size: 12px; color: #92400E; margin-top: 10px;
+  }
+  .diag-box code {
+    background: #FFF; border: 1px solid #FCD34D;
+    padding: 1px 5px; border-radius: 3px;
+    font-family: 'Courier New', monospace; font-size: 11px;
+  }
+
+  /* Hint */
+  .hint-box {
+    background: #FFFBEB; border: 1px solid #FDE68A;
+    border-radius: 8px; padding: 8px 12px;
+    font-size: 12px; color: #92400E; margin-top: 10px;
+  }
+
+  /* Result table */
+  /* Tables: fit within view, no horizontal scroll */
+  .tbl-wrap { overflow-x: auto; max-width: 100%; margin-top: 10px; border-radius: 10px; border: 1px solid var(--border); background:#fff; }
+  .tbl-wrap table { width: max-content; min-width: 100%; border-collapse: collapse; table-layout: auto; }
+  .tbl-wrap th, .tbl-wrap td {
+    padding: 6px 8px;
+    border-bottom: 1px solid #EEF2F7;
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: clip;
+    vertical-align: top;
+  }
+  .tbl-wrap thead th {
+    background: var(--primary-dark);
+    color: #fff;
+    border-bottom: 1px solid rgba(255,255,255,.15);
+    font-weight: 700;
+    overflow: visible;
+    text-overflow: clip;
+    font-size: 11px;
+  }
+  .tbl-wrap td.col-sku, .tbl-wrap th.col-sku {
+    white-space: normal;
+    word-break: break-all;
+  }
+  .tbl-wrap td.col-num, .tbl-wrap th.col-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .tbl-wrap td.col-match { font-weight: 700; }
+  table { border-collapse: collapse; width: 100%; }
+
+  /* Result actions */
+  .result-meta { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; font-size: 13px; }
+  .result-stat {
+    background: #EEF4FB; border: 1px solid var(--border); border-radius: 20px;
+    padding: 3px 12px; font-weight: 600;
+  }
+  .result-stat.ok { background: #E2EFDA; border-color: #70AD47; color: #375623; }
+  .result-stat.ng { background: #FCE4D6; border-color: #ED7D31; color: #C00000; }
+
+  .btn-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 18px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    transition: transform .15s ease, box-shadow .15s ease, background .15s ease, border-color .15s ease;
+    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.06);
+    background: #fff;
+    color: var(--text);
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 10px 20px rgba(15, 23, 42, 0.10); }
+  .btn:active { transform: translateY(0px); box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08); }
+
+  .btn-success { background: linear-gradient(135deg, #16A34A, #15803D); color: #fff; }
+  .btn-success:hover { background: linear-gradient(135deg, #22C55E, #15803D); }
+  .btn-primary { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: #fff; }
+  .btn-primary:hover { background: linear-gradient(135deg, #C4B5FD, var(--primary-dark)); }
+
+  .btn-secondary {
+    background: linear-gradient(180deg, #FFFFFF, #F8FAFC) !important;
+    color: #334155 !important;
+    border: 1px solid #CBD5E1 !important;
+    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.06);
+  }
+  .btn-secondary:hover {
+    background: linear-gradient(180deg, #FFFFFF, #EEF2F7) !important;
+  }
+
+  /* Footer */
+  .app-footer { display: none; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: rgba(15, 23, 42, 0.92);
+    color: #fff; padding: 10px 16px;
+    border-radius: 8px; font-size: 13px; font-weight: 600;
+    box-shadow: var(--shadow-md); z-index: 9999;
+    transition: opacity .3s, transform .3s; pointer-events: none;
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  .toast.hide { opacity: 0; transform: translateY(10px); }
+  .toast:not(.hide) { opacity: 1; transform: translateY(0); }
+
+  .divider { height: 1px; background: linear-gradient(to right, var(--primary), transparent); margin: 0 -26px 18px; opacity: .2; }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div class="header-inner">
+    <div class="brand">
+      <div class="brand-badge"><span>📦</span></div>
+      <div>
+        <div class="title-en">INBOUND MATCH CONSOLE</div>
+        <h1 class="title-cn">海外仓头程入库情况</h1>
+      </div>
+    </div>
+    <div class="header-actions"></div>
+  </div>
+  <button class="btn help-btn help-btn-fixed" onclick="openHelp()">使用说明</button>
+</div>
+
+<!-- Tab bar -->
+<div class="tab-bar" id="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('workflow')" id="tab-workflow">📝 核对流程</button>
+  <button class="tab-btn" onclick="switchTab('history')" id="tab-history">🔍 查询历史 <span id="history-badge" style="background:var(--primary);color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;display:none"></span></button>
+  <button class="tab-btn" onclick="switchTab('config')" id="tab-config">⚙️ 配置 <span id="badge-prod-sm" style="background:#6C757D;color:#fff;font-size:10px;padding:1px 5px;border-radius:10px;display:none"></span></button>
+  <button class="tab-btn" onclick="switchTab('freight')" id="tab-freight">🧾 账单匹配</button>
+</div>
+
+<!-- Tab: 核对流程 -->
+<div class="tab-content active" id="tab-c-workflow">
+<div class="step-layout">
+  <!-- Left: vertical stepper -->
+  <div class="step-sidebar" id="step-sidebar">
+    <div class="workflow-warehouse">
+      <div class="warehouse-pill">
+        <label>仓库：</label>
+        <select id="warehouse-select" onchange="changeWarehouse()" style="cursor:pointer">
+          <option value="thailand">🇹🇭 泰国仓</option>
+          <option value="mexico">🇲🇽 墨西哥仓</option>
+          <option value="russia">🇷🇺 俄罗斯仓</option>
+          <option value="philippines">🇵🇭 菲律宾仓</option>
+          <option value="malaysia">🇲🇾 马来西亚仓</option>
+          <option value="indonesia">🇮🇩 印尼仓</option>
+          <option value="vietnam">🇻🇳 越南仓</option>
+          <option value="australia">🇦🇺 澳洲仓</option>
+          <option value="uk">🇬🇧 英国仓</option>
+          <option value="usa">🇺🇸 美国仓</option>
+        </select>
+      </div>
+    </div>
+    <div class="sidebar-step active" id="sbar-1">
+      <div class="step-n">1</div>
+      <div class="step-label">上传账单</div>
+    </div>
+    <div class="sidebar-step future" id="sbar-2">
+      <div class="step-n">2</div>
+      <div class="step-label">账单匹配</div>
+    </div>
+    <div class="sidebar-step future" id="sbar-3">
+      <div class="step-n">3</div>
+      <div class="step-label">获取单号</div>
+    </div>
+    <div class="sidebar-step future" id="sbar-4">
+      <div class="step-n">4</div>
+      <div class="step-label">上传订单</div>
+    </div>
+    <div class="sidebar-step future" id="sbar-5">
+      <div class="step-n">5</div>
+      <div class="step-label">核对结果</div>
+    </div>
+  </div>
+
+  <!-- Right: step content -->
+  <div class="container" style="flex:1">
+
+  <!-- Step 1: Upload Bill -->
+  <div class="step-section current" id="step-1">
+    <div class="step-hd">
+      <div class="step-n">1</div>
+      <div class="step-title">上传账单</div>
+      <div class="step-badge" id="badge-1" style="display:none">✓</div>
+    </div>
+    <div class="hint-box">上传账单（.xlsx），解析「入库更新」Sheet 提取入库单号。<span id="prod-hint"></span></div>
+    <div style="margin-top:12px">
+      <label class="upload-btn">
+        📂 选择账单文件
+        <input type="file" accept=".xlsx,.xls" id="file-bill" onchange="loadBill(this.files[0])">
+      </label>
+    </div>
+    <div id="bill-loaded" style="display:none;margin-top:12px">
+      <div class="loaded-info">
+        <span>📄 <span class="fname" id="bill-fname"></span></span>
+        <div id="bill-stats"></div>
+        <button class="reset-btn" onclick="resetBill()">🗑 重选</button>
+      </div>
+      <div id="bill-chips" class="chip-row"></div>
+    </div>
+    <div id="bill-action" style="display:none">
+      <button class="continue-btn" onclick="proceedFromBill()">✅ 确认入库单号 → 下一步</button>
+    </div>
+  </div>
+
+  <!-- Step 2: Match Table -->
+  <div class="step-section future" id="step-2">
+    <div class="step-hd">
+      <div class="step-n">2</div>
+      <div class="step-title">账单匹配</div>
+      <div class="step-badge" id="badge-2" style="display:none">✓</div>
+    </div>
+    <div class="hint-box" id="match-hint">点击按钮从「配置」中调用已保存的匹配表，按当前仓库自动选工作表并匹配。</div>
+    <div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button class="continue-btn" onclick="applyMatchFromConfig()" id="btn-apply-match">📋 从配置加载匹配表</button>
+      <span id="match-prep-status" style="font-size:13px;color:#6B7280"></span>
+    </div>
+    <div id="match-loaded" style="display:none;margin-top:12px">
+      <div class="loaded-info">
+        <span>📄 <span class="fname" id="match-fname"></span></span>
+        <button class="reset-btn" onclick="resetMatch()">🗑 重选</button>
+      </div>
+      <div id="match-stats" style="margin-top:8px"></div>
+      <div id="match-diag"></div>
+    </div>
+    <div id="match-action" style="display:none">
+      <button class="continue-btn" onclick="proceedFromMatch()">✅ 匹配完成 → 下一步</button>
+    </div>
+  </div>
+
+  <!-- Step 3: Confirm IDs -->
+  <div class="step-section future" id="step-3">
+    <div class="step-hd">
+      <div class="step-n">3</div>
+      <div class="step-title">获取单号</div>
+      <div class="step-badge" id="badge-3" style="display:none">✓</div>
+    </div>
+    <div id="id-summary" class="hint-box" style="display:none"></div>
+    <div class="copy-row" id="id-copy-row" style="display:none">
+      <button class="copy-btn" onclick="copyIDs()">📋 一键复制全部内部单号</button>
+      <span class="copied-msg" id="copied-msg">已复制到剪贴板！</span>
+    </div>
+    <div id="id-chips-wrap" style="margin-top:8px">
+      <div id="id-chips" class="chip-row"></div>
+    </div>
+    <div id="id-diag" style="margin-top:10px"></div>
+    <div id="id-action" style="display:none">
+      <button class="continue-btn" onclick="proceedFromIDs()">✅ 确认单号 → 下一步</button>
+    </div>
+  </div>
+
+  <!-- Step 4: Upload Order -->
+  <div class="step-section future" id="step-4">
+    <div class="step-hd">
+      <div class="step-n">4</div>
+      <div class="step-title">上传订单</div>
+      <div class="step-badge" id="badge-4" style="display:none">✓</div>
+    </div>
+    <div class="hint-box">上传订单 Excel（包含内部订单号、商品编码、数量等字段）</div>
+    <div style="margin-top:12px">
+      <label class="upload-btn">
+        📂 选择订单文件
+        <input type="file" accept=".xlsx,.xls" id="file-order" onchange="loadOrder(this.files[0])">
+      </label>
+    </div>
+    <div id="order-loaded" style="display:none;margin-top:12px">
+      <div class="loaded-info">
+        <span>📄 <span class="fname" id="order-fname"></span></span>
+        <div id="order-stats"></div>
+        <button class="reset-btn" onclick="resetOrder()">🗑 重选</button>
+      </div>
+    </div>
+    <div id="order-action" style="display:none">
+      <button class="continue-btn" onclick="proceedFromOrder()">✅ 生成核对结果</button>
+    </div>
+  </div>
+
+  <!-- Step 5: Result -->
+  <div class="step-section future" id="step-5">
+    <div class="step-hd">
+      <div class="step-n">5</div>
+      <div class="step-title">核对结果</div>
+    </div>
+    <div class="result-meta" id="result-meta"></div>
+    <div id="result-filter-row" style="display:none;margin-bottom:10px;align-items:center;gap:10px;flex-wrap:wrap">
+      <label class="btn btn-secondary" style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:700">
+        <input type="checkbox" id="filter-ng-only" onchange="toggleNgFilter()" style="width:16px;height:16px;cursor:pointer">
+        <span style="color:var(--danger)">只显示不一致/无订单</span>
+      </label>
+    </div>
+    <div class="tbl-wrap" id="result-table-wrap" style="max-height:560px;overflow-y:auto;overflow-x:auto;"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="saveResult()">💾 保存结果</button>
+      <button class="btn btn-success" onclick="downloadResult()">📥 下载 Excel</button>
+      <button class="btn btn-primary" onclick="copyResultText()">📋 复制文本</button>
+      <button class="btn" onclick="resetAll()" style="background:#6B7280;color:#fff;border-color:#6B7280">🔄 重新开始</button>
+      <button class="btn" onclick="scrollToTop()" style="background:#E5E7EB;color:#374151;border-color:#D1D5DB">⬆️ 回到顶部</button>
+    </div>
+  </div>
+
+  </div><!-- end container -->
+</div><!-- end step-layout -->
+</div><!-- end tab-c-workflow -->
+
+<!-- Tab: 查询历史 -->
+<div class="tab-content" id="tab-c-history">
+<div class="container">
+  <div class="step-section current" id="history-section">
+    <div class="step-hd">
+      <div class="step-n" style="background:var(--primary)">🔍</div>
+      <div class="step-title">查询核对历史</div>
+    </div>
+	    <div class="hint-box">输入入库单号（支持多个，用换行或逗号分隔）查找历史核对结果</div>
+	    <div style="margin-top:12px">
+	      <textarea id="history-ids" placeholder="例如：&#10;IO00130206030201&#10;IO00130205233001&#10;（多个用换行分隔）" style="width:100%;min-height:80px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:13px;resize:vertical"></textarea>
+	    </div>
+	    <div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+	      <span style="color:var(--text-muted);font-size:13px">海外仓：</span>
+	      <select id="history-wh" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px" onchange="onHistoryFilterChange()">
+	        <option value="all">全部</option>
+	        <option value="thailand">泰国</option>
+	        <option value="mexico">墨西哥</option>
+	        <option value="russia">俄罗斯</option>
+	        <option value="philippines">菲律宾</option>
+	        <option value="malaysia">马来西亚</option>
+	        <option value="indonesia">印尼</option>
+	        <option value="vietnam">越南</option>
+	        <option value="australia">澳洲</option>
+	        <option value="uk">英国</option>
+	        <option value="usa">美国</option>
+	        <option value="unknown">未知</option>
+	      </select>
+        <span style="color:var(--text-muted);font-size:13px;margin-left:6px">筛选：</span>
+        <select id="history-match-filter" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px" onchange="onHistoryFilterChange()">
+          <option value="all">全部</option>
+          <option value="ok">仅一致</option>
+          <option value="ng">仅不一致/异常</option>
+        </select>
+	      <button class="btn btn-success" onclick="exportHistoryQuery()">📥 导出查询记录</button>
+        <button class="btn btn-secondary" onclick="restoreHistoryBackup()">⏪ 恢复备份</button>
+	    </div>
+	    <div class="btn-row" style="margin-top:12px">
+	      <button class="btn btn-primary" onclick="searchHistory()">🔍 查询</button>
+      <button class="btn btn-secondary" onclick="document.getElementById('history-ids').value='';document.getElementById('history-result').innerHTML=''">清空</button>
+	    </div>
+    <div id="history-list-meta" style="margin-top:12px;font-size:13px;color:var(--text-muted);display:none">
+      <span id="history-total"></span>
+    </div>
+    <div id="history-result" style="margin-top:12px"></div>
+  </div>
+</div>
+</div><!-- end tab-c-history -->
+
+<!-- Tab: 配置 -->
+<div class="tab-content" id="tab-c-config">
+<div class="container">
+  <!-- 匹配表预处理 -->
+  <div class="step-section current">
+    <div class="step-hd">
+      <div class="step-n" style="background:#7C3AED">📋</div>
+      <div class="step-title">匹配表预处理</div>
+      <div class="step-badge" id="badge-match-prep" style="display:none;background:#7C3AED">✓ 已处理</div>
+    </div>
+    <div class="hint-box">上传头程匹配表（原始合并单元格版本），系统自动扫描所有工作表并拆分填充后保存。<b>核对流程中选择仓库后，上传匹配表时自动命中并按仓库自动选工作表</b>。支持导出检查。</div>
+    <div style="margin-top:12px">
+      <label class="upload-btn">
+        📂 选择头程匹配表（原始合并表格）
+        <input type="file" accept=".xlsx,.xls" id="file-match-prep" onchange="preprocessMatchTable(this.files[0])">
+      </label>
+    </div>
+    <div id="match-prep-loaded" style="display:none;margin-top:12px">
+      <div class="loaded-info">
+        <span>📄 <span class="fname" id="match-prep-fname"></span></span>
+        <span style="margin-left:12px" id="match-prep-stats"></span>
+        <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-success" onclick="exportPreprocessedMatch()">📥 导出检查</button>
+          <button class="reset-btn" onclick="resetMatchPrep()">🗑 清除</button>
+        </div>
+      </div>
+    </div>
+    <div class="hint-box" style="margin-top:12px;background:#F5F3FF;border-color:#A78BFA;color:#5B21B6">
+      💡 <b>说明：</b>预处理后系统保存拆分填充结果，下次打开工具自动加载。上传匹配表时，系统根据当前仓库自动选对应工作表，无需手动切换。
+    </div>
+  </div>
+
+  <div style="margin-top:24px">
+  <!-- 产品信息配置 -->
+  <div class="step-section current">
+    <div class="step-hd">
+      <div class="step-n" style="background:#6C757D">⚙️</div>
+      <div class="step-title">产品信息配置</div>
+      <div class="step-badge" id="badge-prod" style="display:none;background:#6C757D">✓ 已配置</div>
+    </div>
+    <div class="hint-box">上传产品信息表（PLM-成品.xlsx），用于 SKU 映射。当账单中某个 SKU 在订单里找不到时，系统会通过产品名匹配其他 SKU 别名来查找。</div>
+    <div style="margin-top:12px">
+      <label class="upload-btn">
+        📂 选择产品信息表
+        <input type="file" accept=".xlsx,.xls" id="file-prod" onchange="loadProductInfo(this.files[0])">
+      </label>
+    </div>
+    <div id="prod-loaded" style="display:none;margin-top:12px">
+      <div class="loaded-info">
+        <span>📄 <span class="fname" id="prod-fname"></span></span>
+        <div id="prod-stats"></div>
+        <button class="reset-btn" onclick="resetProductInfo()">🗑 清除</button>
+      </div>
+    </div>
+    <div class="hint-box" style="margin-top:12px;background:#F0F9FF;border-color:#93C5FD;color:#1E40AF">
+      💡 <b>说明：</b>产品信息表保存后永久生效，下次打开自动加载。表格中「商品名称」相同的行视为同一产品，其「商品编码」「聚水潭旧编码」「规格型号」等字段均可作为 SKU 别名。
+    </div>
+  </div>
+  </div>
+</div>
+</div><!-- end tab-c-config -->
+
+<!-- Tab: 账单匹配 -->
+<div class="tab-content" id="tab-c-freight">
+<div class="container">
+  <iframe id="freight-tool-frame" class="freight-inline-frame" title="账单匹配工具"></iframe>
+</div>
+</div><!-- end tab-c-freight -->
+
+<div class="app-footer">海外仓头程入库情况</div>
+<div class="toast hide" id="toast"></div>
+<div class="modal-mask" id="help-mask" onclick="closeHelp(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-hd">
+      <h3>使用说明 / How to Use</h3>
+      <button class="modal-close" onclick="closeHelp()">关闭</button>
+    </div>
+    <div class="modal-body">
+      <div class="sec">
+        <div class="sec-title">核对流程</div>
+        <ul>
+          <li>选择海外仓 → 上传账单（工具会自动定位「入库更新/入库」相关工作表）。</li>
+          <li>上传头程匹配表（支持合并单元格自动拆分填充，并缓存结果，下次打开自动加载）。</li>
+          <li>上传订单（内部单号/内部订单号 + 商品编码(SKU) + 数量）。</li>
+          <li>点击「生成核对结果」：以 <b>入库单号维度</b> 判断是否一致（同入库单号+SKU 汇总对比账单数量与头程汇总）。</li>
+        </ul>
+      </div>
+      <div class="sec">
+        <div class="sec-title">SKU 映射</div>
+        <ul>
+          <li>若账单 SKU 与订单 SKU 不一致，可上传产品信息表：同一产品（同一行/同一商品名）的编码/旧编码/辅助码等视为别名参与匹配。</li>
+          <li>匹配时会自动归一化（大小写/空格/破折号）以提升命中率。</li>
+        </ul>
+      </div>
+      <div class="sec">
+        <div class="sec-title">历史与导出</div>
+        <ul>
+          <li>「保存结果」一致/不一致都会保存；对同一 <b>入库单号 + 内部单号 + SKU（按账单SKU归一）</b> 自动去重合并，本次保存会优先覆盖旧的重复行。</li>
+          <li>「查询历史」可按入库单号或按海外仓查看，并显示该仓币种。</li>
+          <li>「下载 Excel」包含明细与「按入库单号汇总」两张表；入库费用金额仅在汇总表展示。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<script>
+// ──────────────────────────────────────────────
+// State
+// ──────────────────────────────────────────────
+function openHelp() {
+  const m = document.getElementById('help-mask');
+  if (m) m.classList.add('show');
+}
+function closeHelp(ev) {
+  if (ev && ev.target && ev.target.id !== 'help-mask') return;
+  const m = document.getElementById('help-mask');
+  if (m) m.classList.remove('show');
+}
+// Warehouse-specific column name patterns
+const BILL_COL_MAP = {
+  // Thailand, Mexico, Russia, Philippines, Malaysia, Indonesia, Vietnam (same format as Thailand)
+  thailand:   { id: ['入库单号', '入库编号'], sku: ['SKU', '商品编码', '卖家SKU'], qty: ['已上数量', '上架数量', '上架量', '入库数量'] },
+  mexico:     { id: ['入库单号', '入库编号'], sku: ['SKU', '商品编码', '卖家SKU'], qty: ['已上数量', '上架数量', '上架量', '入库数量'] },
+  russia:     { id: ['入库单号', '入库编号', '入库单编号'], sku: ['SKU', '商品编码', '卖家SKU'], qty: ['上架数量', '已上数量', '上架量', '入库数量'] },
+  philippines:{ id: ['入库单号', '入库编号'], sku: ['SKU', '商品编码', '卖家SKU'], qty: ['已上数量', '上架数量', '上架量', '入库数量'] },
+  malaysia:   { id: ['入库单号', '入库编号'], sku: ['SKU', '商品编码', '卖家SKU'], qty: ['已上数量', '上架数量', '上架量', '入库数量'] },
+  indonesia:  { id: ['入库单号', '入库编号'], sku: ['SKU', '商品编码', '卖家SKU'], qty: ['已上数量', '上架数量', '上架量', '入库数量'] },
+  vietnam:    { id: ['入库单号', '入库编号'], sku: ['SKU', '商品编码', '卖家SKU'], qty: ['已上数量', '上架数量', '上架量', '入库数量'] },
+  // Australia (different names)
+  // 澳洲账单：SKU 用「商品编码」，入库单号用「入库单编号」，已上数量用「计费数量」
+  australia:  { id: ['入库单编号', '入库单号', '入库编号'], sku: ['商品编码', '商品编码(Product Code)', 'Product Code'], qty: ['计费数量', '已上数量', '上架数量'] },
+  // UK (different names)
+  // 英国账单：SKU 用「SKU」，入库单号用「入库单号」，已上数量用「入库数量」
+  uk:         { id: ['入库单号', '入库编号'], sku: ['SKU'], qty: ['入库数量', '已上数量', '上架数量'] },
+  // USA (different names)
+  usa:        { id: ['参考单号', '入库编号', '入库单号'], sku: ['卖家SKU', 'SKU'], qty: ['上架量', '已上数量'] },
+};
+
+// 仓库 -> 币种（用于查询历史汇总展示）
+const WAREHOUSE_CURRENCY = {
+  thailand: 'CNY',
+  mexico: 'CNY',
+  russia: 'CNY',
+  philippines: 'CNY',
+  malaysia: 'CNY',
+  indonesia: 'CNY',
+  vietnam: 'CNY',
+  australia: 'AUD',
+  uk: 'USD',
+  usa: 'USD'
+};
+function currencyOfWarehouse(wh) {
+  const k = String(wh || '').trim();
+  return WAREHOUSE_CURRENCY[k] || '';
+}
+
+function warehouseDisplayName(wh) {
+  const k = String(wh || '').trim();
+  const map = {
+    thailand: '泰国仓',
+    mexico: '墨西哥仓',
+    russia: '俄罗斯仓',
+    philippines: '菲律宾仓',
+    malaysia: '马来西亚仓',
+    indonesia: '印尼仓',
+    vietnam: '越南仓',
+    australia: '澳洲仓',
+    uk: '英国仓',
+    usa: '美国仓'
+  };
+  return map[k] || (k ? k : '-');
+}
+
+const STATE = {
+  warehouse: 'thailand',
+  billData: null, billFileName: '',
+  matchData: null, matchFileName: '',
+  orderData: null, orderFileName: '',
+  billIDs: [], matchedIDs: [], finalIDs: [],
+  billToInternalMap: {},
+  resultData: [],
+  billCols: null
+};
+
+// Fixed output columns
+const RESULT_COLS = [
+  '海外仓', '入库单号', '内部单号', '头程服务商',
+  'SKU', '已上数量（账单）', '数量（订单）', '数量（订单汇总）', '数量差异', '是否一致'
+];
+
+// 核对结果列宽（px）：保证“不横向滚动”且列名可完整显示
+const RESULT_COL_WIDTHS = {
+  '海外仓': 90,
+  '入库单号': 140,
+  '内部单号': 95,
+  '头程服务商': 95,
+  'SKU': 300,
+  '已上数量（账单）': 90,
+  '数量（订单）': 90,
+  '数量（订单汇总）': 95,
+  '数量差异': 85,
+  '是否一致': 140
+};
+
+// UI 文案：仅展示时替换，不影响内部字段名/逻辑
+const RESULT_COL_LABELS = {
+  '已上数量（账单）': '上架数量',
+  '数量（订单）': '头程数量',
+  '数量（订单汇总）': '头程汇总'
+};
+function dispCol(col) { return RESULT_COL_LABELS[col] || col; }
+
+// ──────────────────────────────────────────────
+// Parsing helpers
+// ──────────────────────────────────────────────
+function parseNumberLike(v) {
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  const s = String(v).replace(/,/g, '').trim();
+  const m = s.match(/-?\d+(\.\d+)?/);
+  if (!m) return null;
+  const n = Number(m[0]);
+  return Number.isFinite(n) ? n : null;
+}
+
+function pickBestCol(allHeaders, patterns, dataRows, { preferNumeric = false } = {}) {
+  const headers = (allHeaders || []).map(h => String(h ?? '').trim()).filter(Boolean);
+  const pats = (patterns || []).map(p => String(p ?? '').trim()).filter(Boolean);
+  if (headers.length === 0) return null;
+  if (pats.length === 0) return headers[0];
+
+  const norm = (s) => String(s || '').replace(/\s+/g, '').trim();
+  const candidates = [];
+  headers.forEach(h => {
+    // 排除常见“干扰列”
+    const hh = String(h || '');
+    if (hh.includes('差异')) return;
+    if (hh.includes('单价')) return;
+    if (hh.includes('费用') || hh.includes('金额')) return;
+
+    let matchScore = 0;
+    pats.forEach(p => {
+      if (!p) return;
+      if (h === p) matchScore = Math.max(matchScore, 100);
+      else if (norm(h) === norm(p)) matchScore = Math.max(matchScore, 95);
+      else if (h.startsWith(p)) matchScore = Math.max(matchScore, 60);
+      else if (h.includes(p)) matchScore = Math.max(matchScore, 20);
+    });
+    if (matchScore > 0) candidates.push({ h, matchScore });
+  });
+  if (candidates.length === 0) return headers[0];
+
+  const sample = Array.isArray(dataRows) ? dataRows.slice(0, 600) : [];
+  let best = null;
+  candidates.forEach(c => {
+    let hits = 0;
+    if (preferNumeric && sample.length) {
+      for (const r of sample) {
+        const n = parseNumberLike(r ? r[c.h] : null);
+        if (n !== null) hits++;
+      }
+    }
+    const score = c.matchScore * 1000 + hits; // match 优先，其次看数值命中
+    if (!best || score > best.score) best = { h: c.h, score, hits, matchScore: c.matchScore };
+  });
+  return best ? best.h : candidates[0].h;
+}
+
+function hasHeaderMatch(allHeaders, patterns) {
+  const headers = (allHeaders || []).map(h => String(h ?? '').trim()).filter(Boolean);
+  const pats = (patterns || []).map(p => String(p ?? '').trim()).filter(Boolean);
+  if (headers.length === 0 || pats.length === 0) return false;
+  return headers.some(h => pats.some(p => h.includes(p)));
+}
+
+// ──────────────────────────────────────────────
+// Tab switching
+// ──────────────────────────────────────────────
+function updateChromeHeight() {
+  const header = document.querySelector('.app-header');
+  const tabBar = document.getElementById('tab-bar');
+  const h1 = header ? header.offsetHeight : 0;
+  const h2 = tabBar ? tabBar.offsetHeight : 0;
+  document.documentElement.style.setProperty('--header-height', Math.max(0, h1) + 'px');
+  const total = Math.max(80, h1 + h2);
+  document.documentElement.style.setProperty('--chrome-height', total + 'px');
+}
+
+function ensureTopNavVisible() {
+  const header = document.querySelector('.app-header');
+  const tabBar = document.getElementById('tab-bar');
+  if (header) {
+    header.style.display = 'block';
+    header.style.visibility = 'visible';
+    header.style.opacity = '1';
+  }
+  if (!tabBar) return;
+  tabBar.style.display = 'flex';
+  tabBar.style.visibility = 'visible';
+  tabBar.style.opacity = '1';
+  updateChromeHeight();
+}
+
+function switchTab(tab) {
+  ensureTopNavVisible();
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.getElementById('tab-c-' + tab).classList.add('active');
+  if (tab === 'history') loadHistoryList();
+  if (tab === 'freight') ensureFreightToolLoaded();
+}
+
+const FREIGHT_TOOL_RELATIVE_PATH = '../头程账单匹配工具.html';
+let _freightToolLoaded = false;
+
+function ensureFreightToolLoaded() {
+  const frame = document.getElementById('freight-tool-frame');
+  if (!frame) return;
+  if (!_freightToolLoaded) {
+    frame.src = encodeURI(FREIGHT_TOOL_RELATIVE_PATH);
+    _freightToolLoaded = true;
+  }
+}
+
+// ──────────────────────────────────────────────
+// History storage (IndexedDB + localStorage cache)
+// ──────────────────────────────────────────────
+const HISTORY_KEY = 'inbound_check_history';
+const BID_NOTE_KEY = 'inbound_bid_notes';
+const HISTORY_BACKUP_KEY = 'inbound_check_history_backup_v1';
+
+const HISTORY_DB_NAME = 'inbound_check_history_db';
+const HISTORY_DB_VERSION = 1;
+const HISTORY_DB_STORE = 'history';
+const HISTORY_DB_KEY = 'all';
+const HISTORY_DB_BK_STORE = 'history_backups';
+
+let _historyCache = null; // Array
+let _historyReady = false;
+let _historyLoadPromise = null;
+
+function openHistoryDB() {
+  return new Promise((resolve, reject) => {
+    try {
+      const req = indexedDB.open(HISTORY_DB_NAME, HISTORY_DB_VERSION);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(HISTORY_DB_STORE)) {
+          db.createObjectStore(HISTORY_DB_STORE);
+        }
+        if (!db.objectStoreNames.contains(HISTORY_DB_BK_STORE)) {
+          db.createObjectStore(HISTORY_DB_BK_STORE);
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    } catch (e) { reject(e); }
+  });
+}
+
+async function idbGetHistory() {
+  const db = await openHistoryDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(HISTORY_DB_STORE, 'readonly');
+    const req = tx.objectStore(HISTORY_DB_STORE).get(HISTORY_DB_KEY);
+    req.onsuccess = () => { try { db.close(); } catch(_) {} resolve(req.result || null); };
+    req.onerror = () => { try { db.close(); } catch(_) {} reject(req.error); };
+  });
+}
+
+async function idbSetHistory(history) {
+  const db = await openHistoryDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(HISTORY_DB_STORE, 'readwrite');
+    tx.oncomplete = () => { try { db.close(); } catch(_) {} resolve(true); };
+    tx.onerror = () => { try { db.close(); } catch(_) {} reject(tx.error || new Error('IDB 写入失败')); };
+    tx.objectStore(HISTORY_DB_STORE).put(Array.isArray(history) ? history : [], HISTORY_DB_KEY);
+  });
+}
+
+async function idbAppendHistoryBackup(payload) {
+  try {
+    const db = await openHistoryDB();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(HISTORY_DB_BK_STORE, 'readwrite');
+      tx.oncomplete = () => { try { db.close(); } catch(_) {} resolve(true); };
+      tx.onerror = () => { try { db.close(); } catch(_) {} reject(tx.error || new Error('IDB 备份失败')); };
+      tx.objectStore(HISTORY_DB_BK_STORE).put(payload, String(Date.now()));
+    });
+  } catch (_) {
+    return false;
+  }
+}
+
+function readLegacyHistoryFromStorage() {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY) || sessionStorage.getItem(HISTORY_KEY) || '[]';
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+async function ensureHistoryLoaded() {
+  if (_historyReady) return true;
+  if (_historyLoadPromise) return _historyLoadPromise;
+  _historyLoadPromise = (async () => {
+    try {
+      const idb = await idbGetHistory();
+      if (Array.isArray(idb)) {
+        _historyCache = idb;
+        _historyReady = true;
+        return true;
+      }
+      // 迁移旧版 local/sessionStorage
+      const legacy = readLegacyHistoryFromStorage();
+      _historyCache = legacy;
+      _historyReady = true;
+      if (legacy.length > 0) {
+        try { await idbSetHistory(legacy); } catch (_) {}
+      }
+      return true;
+    } catch (e) {
+      // IndexedDB 不可用：退回 localStorage
+      _historyCache = readLegacyHistoryFromStorage();
+      _historyReady = true;
+      console.warn('[history] IndexedDB 加载失败，回退 localStorage:', e && e.message ? e.message : e);
+      return true;
+    } finally {
+      _historyLoadPromise = null;
+    }
+  })();
+  return _historyLoadPromise;
+}
+
+function getHistory() {
+  if (Array.isArray(_historyCache)) return _historyCache;
+  // 兜底（首次加载前）：不要在此处做异步，先回退 legacy
+  return readLegacyHistoryFromStorage();
+}
+
+function getHistoryBackup() {
+  try { return JSON.parse(localStorage.getItem(HISTORY_BACKUP_KEY) || 'null'); }
+  catch { return null; }
+}
+
+function saveHistoryBackup(prevHistory, reason) {
+  try {
+    const payload = {
+      savedAt: new Date().toLocaleString('zh-CN'),
+      reason: String(reason || ''),
+      history: Array.isArray(prevHistory) ? prevHistory : []
+    };
+    localStorage.setItem(HISTORY_BACKUP_KEY, JSON.stringify(payload));
+    // 同步保存一份到 IndexedDB（不阻塞）
+    idbAppendHistoryBackup(payload).catch(() => {});
+    return true;
+  } catch (_) {
+    // localStorage 满了也尽量做 IDB 备份
+    try {
+      const payload = {
+        savedAt: new Date().toLocaleString('zh-CN'),
+        reason: String(reason || ''),
+        history: Array.isArray(prevHistory) ? prevHistory : []
+      };
+      idbAppendHistoryBackup(payload).catch(() => {});
+    } catch(_) {}
+    return false;
+  }
+}
+
+async function restoreHistoryBackup() {
+  await ensureHistoryLoaded();
+  const bk = getHistoryBackup();
+  if (!bk || !Array.isArray(bk.history) || bk.history.length === 0) {
+    showToast('没有可恢复的备份');
+    return;
+  }
+  if (!confirm(`确定恢复备份？将用备份覆盖当前历史记录（备份时间：${bk.savedAt || '-'}）`)) return;
+  const ok = await persistHistory(bk.history, { reason: 'restoreBackup' });
+  if (!ok) { showToast('恢复失败：浏览器存储空间不足'); return; }
+  await loadHistoryList();
+  showToast('已恢复备份');
+}
+
+async function persistHistory(history, opts) {
+  await ensureHistoryLoaded();
+  const arr = Array.isArray(history) ? history : [];
+  _historyCache = arr;
+
+  let idbOk = false;
+  let cacheOk = false;
+
+  // 先写入 IndexedDB（优先保证不丢）
+  try {
+    await idbSetHistory(arr);
+    idbOk = true;
+  } catch (e) {
+    console.warn('[history] IDB 写入失败:', e && e.message ? e.message : e);
+  }
+
+  // 再写入 localStorage 作为轻量缓存（失败也不覆盖旧数据，避免“只剩 20 条”导致看似丢失）
+  try {
+    const keepN = 200;
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(arr.slice(0, keepN)));
+    cacheOk = true;
+  } catch (e) {
+    // 不做降级覆盖（否则会破坏旧历史）
+    try { sessionStorage.setItem(HISTORY_KEY, JSON.stringify(arr.slice(0, 50))); cacheOk = true; } catch (_) {}
+  }
+  return idbOk || cacheOk;
+}
+
+function getBidNotes() {
+  try { return JSON.parse(localStorage.getItem(BID_NOTE_KEY) || '{}') || {}; }
+  catch { return {}; }
+}
+
+function setBidNote(bid, note) {
+  const b = String(bid || '').trim();
+  if (!b) return;
+  const notes = getBidNotes();
+  notes[b] = { note: String(note ?? ''), updatedAt: new Date().toLocaleString('zh-CN') };
+  localStorage.setItem(BID_NOTE_KEY, JSON.stringify(notes));
+}
+
+const _bidNoteTimers = {};
+function onBidNoteInput(bid, el) {
+  const b = String(bid || '').trim();
+  if (!b || !el) return;
+  const v = String(el.value ?? '');
+  try {
+    // 自适应高度（textarea）
+    el.style.height = 'auto';
+    el.style.height = (el.scrollHeight) + 'px';
+  } catch (_) {}
+  if (_bidNoteTimers[b]) clearTimeout(_bidNoteTimers[b]);
+  const statusEl = document.querySelector(`[data-note-status="${CSS.escape(b)}"]`);
+  if (statusEl) statusEl.textContent = '编辑中…';
+  _bidNoteTimers[b] = setTimeout(() => {
+    setBidNote(b, v);
+    const s = document.querySelector(`[data-note-status="${CSS.escape(b)}"]`);
+    if (s) s.textContent = '已保存';
+    setTimeout(() => { const s2 = document.querySelector(`[data-note-status="${CSS.escape(b)}"]`); if (s2) s2.textContent = ''; }, 1200);
+  }, 450);
+}
+
+function initHistoryNoteWidget(bids) {
+  const box = document.getElementById('history-note-box');
+  if (!box) return;
+  const bidList = (bids || []).map(b => String(b || '').trim()).filter(Boolean);
+  if (bidList.length === 0) { box.innerHTML = ''; return; }
+
+  const notes = getBidNotes();
+  const sel = document.getElementById('history-note-bid');
+  const ta = document.getElementById('history-note-text');
+  const status = document.getElementById('history-note-status');
+  if (!sel || !ta || !status) return;
+
+  sel.innerHTML = bidList.map(b => `<option value="${b}">${b}</option>`).join('');
+  if (bidList.length === 1) sel.style.display = 'none';
+  else sel.style.display = '';
+
+  const load = (bid) => {
+    const v = (notes[bid] && typeof notes[bid].note === 'string') ? notes[bid].note : '';
+    ta.value = v;
+    const t = notes[bid] && notes[bid].updatedAt ? notes[bid].updatedAt : '';
+    status.textContent = t ? `已保存：${t}` : '';
+  };
+
+  let timer = null;
+  const save = () => {
+    const bid = sel.value;
+    setBidNote(bid, ta.value);
+    const fresh = getBidNotes();
+    const t = fresh[bid] && fresh[bid].updatedAt ? fresh[bid].updatedAt : '';
+    status.textContent = t ? `已保存：${t}` : '';
+  };
+
+  sel.onchange = () => load(sel.value);
+  ta.oninput = () => {
+    status.textContent = '编辑中…';
+    clearTimeout(timer);
+    timer = setTimeout(save, 500);
+  };
+  ta.onblur = () => { clearTimeout(timer); save(); };
+
+  load(bidList[0]);
+}
+
+async function saveToHistory(rows) {
+  await ensureHistoryLoaded();
+  const history = getHistory();
+  // 保存前先做一个可恢复备份（仅保留最近 1 份）
+  saveHistoryBackup(history, 'saveResult');
+
+  const normalizeBillSkuKey = (skuCell) => {
+    const raw = String(skuCell || '').trim();
+    if (!raw || raw === '-') return '';
+    const left = raw.includes('⇐') ? raw.split('⇐')[0] : raw;
+    return left.replace(/⚡/g, '').trim();
+  };
+
+  const nowId = Date.now();
+  const savedAt = new Date().toLocaleString('zh-CN');
+
+  const entryBids = [...new Set(rows.map(r => String(r['入库单号'] || '').trim()).filter(Boolean))];
+  if (entryBids.length === 0) { showToast('无有效入库单号，无法保存'); return; }
+
+  // 每个入库单号单独保存为一条记录；同入库单号保存时做去重合并（不是总是显示 1 条）
+  const oldByBid = {};
+  history.forEach(h => {
+    const bid = (h.bids && h.bids.length === 1) ? h.bids[0] : null;
+    if (bid) oldByBid[bid] = h;
+  });
+
+  const newEntries = entryBids.map(bid => {
+    // 覆盖原则（以入库单号为维度）：
+    // 1) 以新的为准：同一入库单号保存时，直接用本次数据覆盖旧记录（不再把旧 rows 合并进来）
+    // 2) 去重：同一 入库单号+内部单号+SKU(按账单SKU归一) 自动去重合并
+    // 3) 优先级：一致 ✓ 优先（若同 key 同时存在 ✓ 与 ✗，保留 ✓）
+    const mergedMap = new Map();
+    const isPlaceholderNid = (nid) => {
+      const s = String(nid ?? '').trim();
+      return !s || s === '-' || s === '—';
+    };
+
+    const newRowsForBid = rows.filter(r => r && String(r['入库单号'] || '').trim() === bid);
+    // 同一 SKUKey 若存在真实内部单号，则丢弃占位内部单号('-') 的行，避免重复/误导
+    const skuKeysWithRealNid = new Set();
+    newRowsForBid.forEach(r => {
+      const nid = String(r['内部单号'] ?? '').trim();
+      const skuKey = normalizeBillSkuKey(r['SKU'] || '');
+      if (skuKey && !isPlaceholderNid(nid)) skuKeysWithRealNid.add(skuKey);
+    });
+    const filteredNewRowsForBid = newRowsForBid.filter(r => {
+      const nid = String(r['内部单号'] ?? '').trim();
+      const skuKey = normalizeBillSkuKey(r['SKU'] || '');
+      if (!skuKey) return true;
+      if (isPlaceholderNid(nid) && skuKeysWithRealNid.has(skuKey)) return false;
+      return true;
+    });
+
+    const keyOfRow = (r) => {
+      const nid = String(r['内部单号'] || '').trim();
+      const skuKey = normalizeBillSkuKey(r['SKU'] || '');
+      const skuCell = String(r['SKU'] || '').trim();
+      return `${bid}||${nid}||${skuKey || skuCell}`;
+    };
+    const scoreRow = (r) => {
+      const m = String(r['是否一致'] || '').trim();
+      const consistent = (m && m.startsWith('✓')) ? 1 : 0;
+      // 一致优先
+      return consistent * 10;
+    };
+    const take = (r) => {
+      if (!r || String(r['入库单号'] || '').trim() !== bid) return;
+      const k = keyOfRow(r);
+      const cur = mergedMap.get(k);
+      const s = scoreRow(r);
+      if (!cur || s > cur.score) mergedMap.set(k, { row: r, score: s });
+    };
+    filteredNewRowsForBid.forEach(r => take(r));
+
+	    return {
+	      id: nowId,
+	      savedAt,
+	      warehouse: STATE.warehouse || '',
+	      bids: [bid],
+	      rows: Array.from(mergedMap.values()).map(v => v.row)
+	    };
+	  });
+
+  // 移除旧的同入库单号记录，插入更新后的记录
+  const rest = history.filter(h => !(h.bids || []).some(b => entryBids.includes(b)));
+  const newHistory = [...newEntries, ...rest];
+
+  const ok = await persistHistory(newHistory, { reason: 'saveResult' });
+  if (ok) showToast(`已保存 ${entryBids.length} 个入库单号的记录（同入库单号自动去重合并）`);
+  else showToast('保存失败：浏览器存储空间不足');
+  return ok;
+}
+
+async function loadHistoryList() {
+  await ensureHistoryLoaded();
+  const history = getHistory();
+  const metaEl = document.getElementById('history-list-meta');
+  const totalEl = document.getElementById('history-total');
+  const badge = document.getElementById('history-badge');
+  const whSel = document.getElementById('history-wh');
+  const wh = whSel ? whSel.value : 'all';
+  if (history.length > 0) {
+    badge.style.display = 'inline';
+    badge.textContent = history.length;
+  } else {
+    badge.style.display = 'none';
+  }
+  if (history.length === 0) {
+    metaEl.style.display = 'none';
+    const bk = getHistoryBackup();
+    const canRestore = bk && Array.isArray(bk.history) && bk.history.length > 0;
+    document.getElementById('history-result').innerHTML =
+      '<div style="color:var(--text-muted);text-align:center;padding:30px">' +
+        '<div style="margin-bottom:10px">暂无历史记录，请先在「核对流程」中保存结果</div>' +
+        (canRestore ? '<button class="btn btn-secondary" onclick="restoreHistoryBackup()">⏪ 恢复备份</button>' : '') +
+      '</div>';
+    return;
+  }
+  metaEl.style.display = 'block';
+  const filteredCount = wh === 'all'
+    ? history.length
+    : history.filter(h => {
+        const w = String(h.warehouse || '').trim();
+        if (wh === 'unknown') return !w;
+        return w === wh;
+      }).length;
+  totalEl.textContent = wh === 'all' ? `共 ${history.length} 条记录` : `共 ${history.length} 条记录（当前仓：${filteredCount} 条）`;
+}
+
+let _lastHistoryQueryRows = [];
+let _lastHistoryQueryBids = [];
+let _lastHistoryQueryWarehouse = 'all';
+
+async function searchHistory() {
+  await ensureHistoryLoaded();
+  const input = document.getElementById('history-ids').value.trim();
+  const whSel = document.getElementById('history-wh');
+  const wh = whSel ? whSel.value : 'all';
+  const mfSel = document.getElementById('history-match-filter');
+  const mf = mfSel ? mfSel.value : 'all';
+
+  let searchBids = [];
+  if (input) {
+    searchBids = input.split(/[\n,，]/).map(s => s.trim()).filter(Boolean);
+    if (searchBids.length === 0) { showToast('请输入有效的入库单号'); return; }
+  }
+
+  const history = getHistory();
+  const found = [];
+  const notFound = [];
+
+  const entryMatchesWarehouse = (entry) => {
+    const w = String(entry.warehouse || '').trim();
+    if (wh === 'all') return true;
+    if (wh === 'unknown') return !w;
+    return w === wh;
+  };
+
+  if (searchBids.length === 0) {
+    // 未输入单号：按仓库查看（全部=全部仓）
+    const bids = [];
+    history.forEach(h => {
+      if (!entryMatchesWarehouse(h)) return;
+      (h.bids || []).forEach(b => bids.push(String(b || '').trim()));
+    });
+    searchBids = [...new Set(bids)].filter(Boolean);
+    if (searchBids.length === 0) { showToast('暂无可查询的历史记录'); return; }
+    if (wh === 'all' && searchBids.length > 300) {
+      if (!confirm(`将查询全部仓库共 ${searchBids.length} 个入库单号，可能较慢，是否继续？`)) return;
+    }
+  }
+
+  searchBids.forEach(bid => {
+    const entry = history.find(h => entryMatchesWarehouse(h) && (h.bids || []).includes(bid));
+    if (entry) {
+      const whName = warehouseDisplayName(entry.warehouse || '');
+      (entry.rows || []).filter(r => r['入库单号'] === bid).forEach(r => found.push({ ...r, '海外仓': (r && r['海外仓']) ? r['海外仓'] : whName, _savedAt: entry.savedAt }));
+    } else {
+      notFound.push(bid);
+    }
+  });
+
+  // 一致/不一致筛选（按“入库单号汇总”判断），但明细行全部保留（包括 SKU不在账单/无订单 等提示行）
+  const filteredFound = (() => {
+    if (mf === 'all') return found;
+    const byBid = {};
+    found.forEach(r => {
+      const b = String(r['入库单号'] || '').trim();
+      if (!b) return;
+      if (!byBid[b]) byBid[b] = [];
+      byBid[b].push({ ...r, _savedAt: undefined });
+    });
+    const keep = new Set();
+    Object.entries(byBid).forEach(([b, rowsForBid]) => {
+      const sum = buildSummaryRows(rowsForBid)[0] || null;
+      const m = String(sum && sum['是否一致'] ? sum['是否一致'] : '').trim();
+      const ok = m.startsWith('✓');
+      if (mf === 'ok' && ok) keep.add(b);
+      if (mf === 'ng' && !ok) keep.add(b);
+    });
+    return found.filter(r => keep.has(String(r['入库单号'] || '').trim()));
+  })();
+
+  const resultEl = document.getElementById('history-result');
+  if (filteredFound.length === 0) {
+    if (notFound.length > 0) {
+      resultEl.innerHTML = `<div style="padding:20px;text-align:center;color:var(--danger)">未找到以下入库单号：${notFound.map(b => `<b>${b}</b>`).join('、')}</div>`;
+    } else {
+      resultEl.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-muted)">当前筛选条件下暂无记录</div>`;
+    }
+    return;
+  }
+
+  _lastHistoryQueryRows = filteredFound.map(r => ({ ...r }));
+  _lastHistoryQueryBids = [...new Set(filteredFound.map(r => String(r['入库单号'] || '').trim()).filter(Boolean))];
+  _lastHistoryQueryWarehouse = wh;
+
+  const sumNumeric = (arr, key) => arr.reduce((s, r) => {
+    const v = Number(r[key]);
+    return s + (Number.isFinite(v) ? v : 0);
+  }, 0);
+  const billSum = sumNumeric(filteredFound, '已上数量（账单）');
+  const orderSumTotal = (() => {
+    const v = sumNumeric(filteredFound, '数量（订单汇总）');
+    return v !== 0 ? v : sumNumeric(filteredFound, '数量（订单）');
+  })();
+  const diffSum = billSum - orderSumTotal;
+  const cur = (wh !== 'all' && wh !== 'unknown') ? currencyOfWarehouse(wh) : '';
+
+  // Render found rows
+  let html = `<div style="margin-bottom:12px;font-size:13px"><span style="color:var(--success)">✓ 找到 <span id="hist-found-count">${filteredFound.length}</span> 条记录</span>` +
+             ` &nbsp;<span style="color:var(--text-muted)">订单数量合计：<b id="hist-order-sum">${orderSumTotal}</b></span>` +
+             ` &nbsp;<span style="color:var(--text-muted)">已上数量合计：<b id="hist-bill-sum">${billSum}</b></span>` +
+             ` &nbsp;<span style="color:var(--text-muted)">差异：<b id="hist-diff-sum">${diffSum > 0 ? '+' : ''}${diffSum}</b></span>` +
+             (cur ? ` &nbsp;<span style="color:var(--text-muted)">币种：<b id="hist-cur">${cur}</b></span>` : '');
+  if (notFound.length > 0) html += ` &nbsp;<span style="color:var(--danger)">未找到：${notFound.join('、')}</span>`;
+  html += `</div>`;
+
+  // Group by savedAt
+  const byTime = {};
+  filteredFound.forEach(row => {
+    const t = row._savedAt;
+    if (!byTime[t]) byTime[t] = [];
+    byTime[t].push(row);
+  });
+
+  Object.entries(byTime).forEach(([savedAt, rows]) => {
+    html += `<div style="margin-bottom:16px">`;
+    html += `<div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">📅 ${savedAt}</div>`;
+    html += renderHistoryTable(rows);
+    html += `</div>`;
+  });
+
+  resultEl.innerHTML = html;
+}
+
+async function onHistoryFilterChange() {
+  const resultEl = document.getElementById('history-result');
+  if (resultEl) resultEl.innerHTML = '';
+  // 切换筛选/仓库后立即重新查询，避免“还显示上次记录”
+  try { await searchHistory(); } catch (_) {}
+}
+
+function historyRowKey(bid, row) {
+  const normalizeBillSkuKey = (skuCell) => {
+    const raw = String(skuCell || '').trim();
+    if (!raw || raw === '-') return '';
+    const left = raw.includes('⇐') ? raw.split('⇐')[0] : raw;
+    return left.replace(/⚡/g, '').trim();
+  };
+  const nid = String((row && row['内部单号']) || '').trim() || '-';
+  const skuKey = normalizeBillSkuKey(row ? row['SKU'] : '') || String((row && row['SKU']) || '').trim() || '-';
+  return `${String(bid || '').trim()}||${nid}||${skuKey}`;
+}
+
+function toggleHistoryEdit(bid) {
+  const b = String(bid || '').trim();
+  if (!b) return;
+  const el = document.querySelector(`details[data-bid="${CSS.escape(b)}"]`);
+  if (!el) return;
+  el.classList.toggle('editing');
+  const btn = el.querySelector('[data-editbtn="1"]');
+  if (btn) btn.textContent = el.classList.contains('editing') ? '完成' : '编辑';
+}
+
+function refreshHistoryTotalsFromCache() {
+  try {
+    const arr = Array.isArray(_lastHistoryQueryRows) ? _lastHistoryQueryRows : [];
+    const sumNumeric = (rows, key) => rows.reduce((s, r) => {
+      const v = Number(r[key]);
+      return s + (Number.isFinite(v) ? v : 0);
+    }, 0);
+    const billSum = sumNumeric(arr, '已上数量（账单）');
+    const orderSumTotal = (() => {
+      const v = sumNumeric(arr, '数量（订单汇总）');
+      return v !== 0 ? v : sumNumeric(arr, '数量（订单）');
+    })();
+    const diffSum = billSum - orderSumTotal;
+    const elFound = document.getElementById('hist-found-count');
+    const elOrder = document.getElementById('hist-order-sum');
+    const elBill = document.getElementById('hist-bill-sum');
+    const elDiff = document.getElementById('hist-diff-sum');
+    if (elFound) elFound.textContent = String(arr.length);
+    if (elOrder) elOrder.textContent = String(orderSumTotal);
+    if (elBill) elBill.textContent = String(billSum);
+    if (elDiff) elDiff.textContent = `${diffSum > 0 ? '+' : ''}${diffSum}`;
+  } catch (_) {}
+}
+
+async function onHistoryEditCommit(inputEl) {
+  await ensureHistoryLoaded();
+  const bid = String(inputEl.getAttribute('data-bid') || '').trim();
+  const rowKey = String(inputEl.getAttribute('data-rowkey') || '').trim();
+  const field = String(inputEl.getAttribute('data-field') || '').trim();
+  if (!bid || !rowKey || !field) return;
+
+  const rawVal = inputEl.value;
+  const val = (rawVal === null || rawVal === undefined) ? '' : String(rawVal).trim();
+  const isNumericField = (field === '已上数量（账单）' || field === '数量（订单）' || field === '数量（订单汇总）' || field === '数量差异');
+  const normalized = isNumericField ? (val === '' ? '-' : (val === '-' ? '-' : (Number.isFinite(Number(val)) ? Number(val) : val))) : (val === '' ? '-' : val);
+
+  const history = getHistory();
+  // 修改前备份，方便误改后恢复
+  saveHistoryBackup(history, 'editHistory');
+  const entryIdx = history.findIndex(h => (h && Array.isArray(h.bids) && h.bids.includes(bid)));
+  if (entryIdx < 0) { showToast('未找到对应历史记录'); return; }
+  const entry = history[entryIdx];
+  const rows = Array.isArray(entry.rows) ? entry.rows : [];
+  const isTriggerRecalc = (field === '已上数量（账单）' || field === '数量（订单汇总）' || field === '数量（订单）');
+  const isKeyField = (field === '入库单号' || field === '内部单号' || field === 'SKU');
+  let updatedRow = null;
+  let updated = false;
+  let newBidForEntry = null;
+
+  if (field === '入库单号') {
+    const nb = String(normalized || '').trim();
+    if (!nb || nb === '-' || nb === '—') { showToast('入库单号不能为空'); return; }
+    newBidForEntry = nb;
+    // 整条记录以入库单号为维度：重命名 bids + 同步所有行的入库单号
+    entry.bids = [newBidForEntry];
+    rows.forEach(r => { if (r) r['入库单号'] = newBidForEntry; });
+    updated = true;
+  } else {
+    rows.forEach(r => {
+      if (!r) return;
+      if (historyRowKey(bid, r) !== rowKey) return;
+      r[field] = normalized;
+
+      if (isTriggerRecalc) {
+        const bq = Number(r['已上数量（账单）']);
+        const oq = Number(r['数量（订单汇总）']);
+        if (Number.isFinite(bq) && Number.isFinite(oq)) {
+          const diff = bq - oq;
+          r['数量差异'] = diff === 0 ? '-' : diff;
+          r['是否一致'] = diff === 0 ? '✓ 一致' : `✗ 差异 ${diff > 0 ? '+' : ''}${diff}`;
+        }
+      }
+      updatedRow = r;
+      updated = true;
+    });
+  }
+
+  if (!updated) { showToast('未命中要修改的行'); return; }
+
+  history[entryIdx] = { ...entry, rows };
+  const ok = await persistHistory(history, { reason: 'editHistoryCommit' });
+  if (!ok) { showToast('保存失败：浏览器存储空间不足'); return; }
+
+  // 更新缓存（导出/统计用）
+  if (field === '入库单号' && newBidForEntry) {
+    _lastHistoryQueryRows = (_lastHistoryQueryRows || []).map(r => {
+      if (!r || String(r['入库单号'] || '').trim() !== bid) return r;
+      return { ...r, '入库单号': newBidForEntry };
+    });
+    _lastHistoryQueryBids = (_lastHistoryQueryBids || []).map(b => (String(b || '').trim() === bid ? newBidForEntry : b));
+    // 同步查询框：把旧单号替换为新单号，保证“再次查询”能查到
+    try {
+      const ta = document.getElementById('history-ids');
+      if (ta && ta.value) {
+        const parts = ta.value.split(/[\n,，]/).map(s => s.trim()).filter(Boolean);
+        ta.value = parts.map(x => (x === bid ? newBidForEntry : x)).join('\n');
+      }
+    } catch (_) {}
+  } else {
+    _lastHistoryQueryRows = (_lastHistoryQueryRows || []).map(r => {
+      if (!r || String(r['入库单号'] || '').trim() !== bid) return r;
+      if (historyRowKey(bid, r) !== rowKey) return r;
+      const rr = { ...r, [field]: normalized };
+      if (isTriggerRecalc) {
+        const bq = Number(rr['已上数量（账单）']);
+        const oq = Number(rr['数量（订单汇总）']);
+        if (Number.isFinite(bq) && Number.isFinite(oq)) {
+          const diff = bq - oq;
+          rr['数量差异'] = diff === 0 ? '-' : diff;
+          rr['是否一致'] = diff === 0 ? '✓ 一致' : `✗ 差异 ${diff > 0 ? '+' : ''}${diff}`;
+        }
+      }
+      return rr;
+    });
+  }
+
+  // 更新当前单元格展示
+  const td = inputEl.closest('td');
+  if (td) {
+    const span = td.querySelector('.cell-text');
+    if (span) span.textContent = String(normalized);
+  }
+
+  // 若触发了自动计算，同步更新同一行对应两列（span + input）
+  try {
+    if (isTriggerRecalc && updatedRow) {
+      const diffVal = updatedRow['数量差异'];
+      const matchVal = updatedRow['是否一致'];
+      const tr = inputEl.closest('tr');
+      if (tr) {
+        const diffInput = tr.querySelector(`input[data-field="数量差异"]`);
+        const matchInput = tr.querySelector(`input[data-field="是否一致"]`);
+        if (diffInput) {
+          diffInput.value = String(diffVal ?? '-');
+          const s = diffInput.closest('td')?.querySelector('.cell-text');
+          if (s) s.textContent = String(diffVal ?? '-');
+        }
+        if (matchInput) {
+          matchInput.value = String(matchVal ?? '-');
+          const s = matchInput.closest('td')?.querySelector('.cell-text');
+          if (s) s.textContent = String(matchVal ?? '-');
+        }
+      }
+    }
+  } catch (_) {}
+
+  // 若改动了 key 字段（内部单号/SKU），更新该行所有 input 的 data-rowkey，确保后续继续编辑可命中
+  if (isKeyField && updatedRow && field !== '入库单号') {
+    try {
+      const tr = inputEl.closest('tr');
+      if (tr) {
+        const newKey = historyRowKey(bid, updatedRow);
+        tr.querySelectorAll('input[data-rowkey]').forEach(inp => inp.setAttribute('data-rowkey', newKey));
+      }
+    } catch (_) {}
+  }
+
+  // 若修改了入库单号：直接刷新查询结果（确保分组/标题/rowkey 全部一致）
+  if (field === '入库单号' && newBidForEntry) {
+    try { searchHistory(); } catch (_) {}
+    showToast('已保存修改');
+    return;
+  }
+
+  // 刷新该入库单号的汇总条
+  try {
+    const bidRows = (_lastHistoryQueryRows || []).filter(r => String(r['入库单号'] || '').trim() === bid).map(r => {
+      const rr = { ...r }; delete rr._savedAt; return rr;
+    });
+    const summary = buildSummaryRows(bidRows)[0];
+    const detailsEl = document.querySelector(`details[data-bid="${CSS.escape(bid)}"]`);
+    if (detailsEl && summary) {
+      const setText = (sel, txt) => { const e = detailsEl.querySelector(sel); if (e) e.textContent = txt; };
+      const fee = summary['入库费用金额'];
+      setText('[data-sum="fee"]', (Number.isFinite(Number(fee)) ? Number(fee).toFixed(2) : String(fee ?? '-')));
+      setText('[data-sum="bill"]', String(summary['已上数量（账单）'] ?? '-'));
+      setText('[data-sum="order"]', String(summary['数量（订单）'] ?? '-'));
+      setText('[data-sum="diff"]', String(summary['数量差异'] ?? '-'));
+      setText('[data-sum="match"]', String(summary['是否一致'] ?? '-'));
+    }
+  } catch (_) {}
+
+  refreshHistoryTotalsFromCache();
+  showToast('已保存修改');
+}
+
+function renderHistoryTable(data) {
+  // 分入库单号：首行展示汇总，展开显示 SKU 明细
+  const cols = RESULT_COLS;
+  const escAttr = (s) => String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+  const escTextarea = (s) => String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/<\/textarea/gi, '<\\/textarea'); // 防止提前闭合
+  const notes = getBidNotes();
+  const byBid = {};
+  data.forEach(r => {
+    const bid = String(r['入库单号'] || '').trim();
+    if (!bid) return;
+    if (!byBid[bid]) byBid[bid] = [];
+    byBid[bid].push(r);
+  });
+
+  const bids = Object.keys(byBid).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const openSingle = bids.length === 1;
+
+  const fmt = (v) => (v === null || v === undefined) ? '-' : v;
+  const fmtMoney = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n.toFixed(2) : (v === null || v === undefined || v === '' ? '-' : String(v));
+  };
+
+  let html = '';
+  bids.forEach(bid => {
+    const rows = byBid[bid];
+    const summary = buildSummaryRows(rows)[0] || { '入库单号': bid, '入库费用金额': '-', '已上数量（账单）': '-', '数量（订单）': '-', '数量差异': '-', '是否一致': '-' };
+    const isOk = String(summary['是否一致'] || '').startsWith('✓');
+    const sumStyle = isOk ? 'color:#375623' : 'color:#C00000';
+    const noteText = (notes[bid] && typeof notes[bid].note === 'string') ? notes[bid].note : '';
+
+    const detailRows = rows.filter(r => String(r['SKU'] || '').trim() && String(r['SKU']).trim() !== '-');
+    const detailCount = detailRows.length;
+
+    html += `<details data-bid="${bid}" ${openSingle ? 'open' : ''} style="border:1px solid var(--border);border-radius:10px;margin:10px 0;background:#fff;overflow:hidden">`;
+	    html += `<summary style="list-style:none;cursor:pointer;padding:12px 12px;background:#F7F9FC;border-bottom:1px solid #EEF2F7">` +
+              `<div class="bid-summary-row1">` +
+	              `<span style="font-weight:700;color:var(--primary-dark)">${bid}</span>` +
+	              `<span style="font-size:12px;color:var(--text-muted)">明细 ${detailCount} 行</span>` +
+	              `<span style="font-size:12px;color:var(--text-muted)">费用：<b data-sum="fee">${fmtMoney(summary['入库费用金额'])}</b></span>` +
+	              `<span style="font-size:12px;color:var(--text-muted)">上架：<b data-sum="bill">${fmt(summary['已上数量（账单）'])}</b></span>` +
+	              `<span style="font-size:12px;color:var(--text-muted)">头程：<b data-sum="order">${fmt(summary['数量（订单）'])}</b></span>` +
+	              `<span style="font-size:12px;color:var(--text-muted)">差异：<b data-sum="diff">${fmt(summary['数量差异'])}</b></span>` +
+                `<span class="bid-summary-right">` +
+	                `<span style="font-size:12px;font-weight:900;${sumStyle}" data-sum="match">${fmt(summary['是否一致'])}</span>` +
+                  `<button class="btn btn-secondary hist-edit-btn" data-editbtn="1" onclick="event.preventDefault();event.stopPropagation();toggleHistoryEdit('${bid}')">编辑</button>` +
+                `</span>` +
+              `</div>` +
+              `<div class="bid-summary-row2" onmousedown="event.stopPropagation()" onclick="event.stopPropagation()">` +
+                `<span class="bid-note-label">备注：</span>` +
+                `<div class="bid-note-wrap">` +
+                  `<textarea class="bid-note-input" rows="1" placeholder="可填写该入库单号备注（下次可查/可改）" ` +
+                  `oninput="this.style.height='auto';this.style.height=(this.scrollHeight)+'px';onBidNoteInput('${escAttr(bid)}', this)">${escTextarea(noteText)}</textarea>` +
+                `</div>` +
+                `<span class="bid-note-status" data-note-status="${escAttr(bid)}"></span>` +
+              `</div>` +
+	            `</summary>`;
+
+    if (detailRows.length === 0) {
+      html += `<div style="padding:12px;color:var(--text-muted)">无 SKU 明细行</div>`;
+    } else {
+      html += `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">`;
+      html += `<thead><tr>`;
+      cols.forEach(l => { html += `<th style="background:#EEF4FB;padding:8px 10px;text-align:left;font-weight:600;color:var(--primary-dark);border-bottom:2px solid var(--border);white-space:nowrap">${dispCol(l)}</th>`; });
+      html += `</tr></thead><tbody>`;
+      detailRows.forEach(row => {
+        const match = row['是否一致'] || '';
+        const ok = String(match).startsWith('✓');
+        const ng = String(match).startsWith('✗') || String(match).includes('无订单') || String(match).includes('差异') || String(match).includes('SKU不在账单');
+        const rowKey = historyRowKey(bid, row);
+        html += `<tr>`;
+        cols.forEach(label => {
+          let val = row[label] ?? '';
+          let bg = '#fff';
+          if (label === '是否一致') {
+            if (ok) bg = '#E2EFDA';
+            else if (ng) bg = '#FCE4D6';
+            else bg = '#F7F9FC';
+          } else if (label === '已上数量（账单）' || label === '数量（订单）' || label === '数量（订单汇总）' || label === '数量差异') {
+            bg = '#F7F9FC';
+          }
+          const safeVal = (val === null || val === undefined) ? '' : String(val);
+          html += `<td class="editable" style="padding:7px 10px;border-bottom:1px solid #F0F0F0;background:${bg};white-space:nowrap">` +
+                  `<span class="cell-text">${safeVal}</span>` +
+                  `<input class="hist-input cell-edit" value="${escAttr(safeVal)}" data-bid="${escAttr(bid)}" data-rowkey="${escAttr(rowKey)}" data-field="${escAttr(label)}" ` +
+                  `onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" onblur="onHistoryEditCommit(this)" />` +
+                  `</td>`;
+        });
+        html += `</tr>`;
+      });
+      html += `</tbody></table></div>`;
+    }
+    html += `</details>`;
+  });
+  return html;
+}
+
+function exportHistoryQuery() {
+  if (!_lastHistoryQueryRows || _lastHistoryQueryRows.length === 0) { showToast('无可导出的查询记录'); return; }
+  const wb = XLSX.utils.book_new();
+  const rowsForSummary = _lastHistoryQueryRows.map(r => {
+    const rr = { ...r };
+    delete rr._savedAt;
+    return rr;
+  });
+  const detailRows = rowsForSummary.map(r => {
+    const rr = { ...r };
+    delete rr['入库费用金额'];
+    return rr;
+  });
+  const wsDetail = XLSX.utils.json_to_sheet(detailRows);
+  XLSX.utils.book_append_sheet(wb, wsDetail, '历史明细');
+
+  const summaryRows = buildSummaryRows(rowsForSummary);
+  const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+  XLSX.utils.book_append_sheet(wb, wsSummary, '按入库单号汇总');
+
+  const wh = _lastHistoryQueryWarehouse || 'all';
+  const whName = wh === 'all' ? '全部' : (wh === 'unknown' ? '未知' : wh);
+  const fname = `历史查询_${whName}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+  XLSX.writeFile(wb, fname, { cellDates: true });
+  showToast('已导出：' + fname);
+}
+
+async function deleteAllHistory() {
+  await ensureHistoryLoaded();
+  if (!confirm('确定清空全部历史记录？')) return;
+  saveHistoryBackup(getHistory(), 'deleteAllHistory');
+  // 清空历史：IDB + 缓存 + local/session
+  const ok = await persistHistory([], { reason: 'deleteAllHistory' });
+  try { localStorage.removeItem(HISTORY_KEY); } catch(_) {}
+  try { sessionStorage.removeItem(HISTORY_KEY); } catch(_) {}
+  document.getElementById('history-badge').style.display = 'none';
+  await loadHistoryList();
+  showToast('已清空全部历史');
+}
+
+// ──────────────────────────────────────────────
+// Step UI
+// ──────────────────────────────────────────────
+let activeStep = 1;
+
+function updateUI() {
+  for (let i = 1; i <= 5; i++) {
+    const el = document.getElementById(`step-${i}`);
+    const sbar = document.getElementById(`sbar-${i}`);
+    const badge = document.getElementById(`badge-${i}`);
+    if (!el) continue;
+    el.classList.remove('future', 'current', 'done');
+    if (sbar) sbar.classList.remove('active', 'done', 'future');
+
+    if (i < activeStep) {
+      el.classList.add('done');
+      if (sbar) sbar.classList.add('done');
+      if (badge) badge.style.display = '';
+    } else if (i === activeStep) {
+      el.classList.add('current');
+      if (sbar) sbar.classList.add('active');
+      if (badge) badge.style.display = 'none';
+    } else {
+      el.classList.add('future');
+      if (sbar) sbar.classList.add('future');
+      if (badge) badge.style.display = 'none';
+    }
+  }
+}
+
+function advanceTo(to) {
+  activeStep = to;
+  updateUI();
+  setTimeout(() => {
+    const el = document.getElementById(`step-${to}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 60);
+}
+
+// ──────────────────────────────────────────────
+// SheetJS helpers
+// ──────────────────────────────────────────────
+function readSheet(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true, cellNF: true });
+        resolve(wb);
+      } catch(err) { reject(err); }
+    };
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function sheetToJSON(wb, name) {
+  const ws = wb.Sheets[name];
+  if (!ws) return [];
+  return XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }) || [];
+}
+
+// 按工作表 !ref 范围读取为“矩形二维数组”（避免后续导出时丢列/乱序）
+function sheetToAOA(ws) {
+  if (!ws) return [];
+  const ref = ws['!ref'] || 'A1:A1';
+  const range = XLSX.utils.decode_range(ref);
+  const rows = [];
+  for (let r = range.s.r; r <= range.e.r; r++) {
+    const row = [];
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const cell = ws[XLSX.utils.encode_cell({ r, c })];
+      row.push(cell ? (cell.v ?? '') : '');
+    }
+    rows.push(row);
+  }
+  return rows;
+}
+
+function findHeaderRowIndex(rows, keyword) {
+  const kw = String(keyword || '').trim();
+  const maxScan = Math.min(rows.length, 20);
+  for (let r = 0; r < maxScan; r++) {
+    const row = rows[r] || [];
+    for (let c = 0; c < row.length; c++) {
+      const v = row[c];
+      const s = (v === null || v === undefined) ? '' : String(v).trim();
+      if (s && kw && s.includes(kw)) return r;
+    }
+  }
+  return 0;
+}
+
+function findHeaderRowIndexByPatterns(rows, patterns) {
+  const maxScan = Math.min(rows.length, 25);
+  const pats = (patterns || []).flat().map(s => String(s || '').trim()).filter(Boolean);
+  if (pats.length === 0) return 0;
+  let best = { r: 0, score: -1 };
+  for (let r = 0; r < maxScan; r++) {
+    const row = rows[r] || [];
+    let score = 0;
+    const rowStrs = row.map(v => (v === null || v === undefined) ? '' : String(v).trim()).filter(Boolean);
+    if (rowStrs.length === 0) continue;
+    pats.forEach(p => {
+      if (rowStrs.some(s => s.includes(p))) score++;
+    });
+    // 额外加分：常见表头关键字
+    if (rowStrs.some(s => s.includes('入库') || s.includes('SKU') || s.includes('商品'))) score += 0.5;
+    if (score > best.score) best = { r, score };
+  }
+  // 命中阈值：patterns 较少时放宽，避免“只有一个关键词”的表头识别失败
+  const threshold = pats.length <= 2 ? 1 : 2;
+  return best.score >= threshold ? best.r : 0;
+}
+
+// 头程匹配表的表头常不是第 1 行；且可能在 25 行之后（有说明/空行/分组标题）
+// 这里单独做一次更“宽松但更稳”的表头行识别（maxScan 更大 + 更偏向“文本型表头”）
+function findMatchHeaderRowIndex(rows) {
+  const maxScan = Math.min(rows.length, 90);
+  const pats = [
+    '内部单号', '内部订单号',
+    '入库单号', '入库单编号', '入库编号',
+    '上架单号', '上架单编号',
+    '头程服务商', '头程', '服务商',
+    '国内转运单号', '国外转运单号', '干线服务单号',
+    'SKU', '商品编码', '卖家SKU'
+  ];
+  let best = { r: 0, score: -1 };
+  for (let r = 0; r < maxScan; r++) {
+    const row = rows[r] || [];
+    const rowStrs = row.map(v => (v === null || v === undefined) ? '' : String(v).trim()).filter(Boolean);
+    if (rowStrs.length === 0) continue;
+
+    let hit = 0;
+    pats.forEach(p => { if (rowStrs.some(s => s.includes(p))) hit++; });
+    if (hit === 0) continue;
+
+    const hasInternal = rowStrs.some(s => s.includes('内部单号') || s.includes('内部订单号'));
+    const hasAnyId = rowStrs.some(s => s.includes('入库') || s.includes('上架') || s.includes('单号') || s.includes('编号'));
+    const hasSku = rowStrs.some(s => s.includes('SKU') || s.includes('商品编码') || s.includes('卖家SKU'));
+
+    // 表头偏好：含内部单号 + 含单号类字段 + 列数更像表头
+    let score = hit;
+    if (hasInternal) score += 2;
+    if (hasAnyId) score += 1;
+    if (hasSku) score += 0.5;
+    score += Math.min(rowStrs.length, 14) * 0.06;
+
+    // 轻微惩罚：若整行大多数是纯数字，更像数据行
+    const numOnlyCount = rowStrs.filter(s => /^\d+(\.\d+)?$/.test(s)).length;
+    if (numOnlyCount >= Math.max(3, Math.floor(rowStrs.length * 0.6))) score -= 0.8;
+
+    if (score > best.score) best = { r, score };
+  }
+  // 阈值：至少要命中“内部单号”或命中较多关键词
+  if (best.score < 2) return 0;
+  return best.r;
+}
+
+function parseRowsWithHeaderIndex(rows, headerRowIndex) {
+  const hIdx = Math.max(0, Number(headerRowIndex) || 0);
+  if (rows.length <= hIdx) return { headers: [], data: [] };
+  const headerRow = rows[hIdx] || [];
+  const headers = headerRow.map((h, i) => String(h ?? '').trim() || `列${i + 1}`);
+  const data = rows.slice(hIdx + 1).map(row => {
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = (row && row.length > i) ? (row[i] ?? '') : ''; });
+    return obj;
+  });
+  return { headers, data };
+}
+
+function parseRows(rows) {
+  if (rows.length < 2) return { headers: [], data: [] };
+  const headers = rows[0].map((h, i) => String(h ?? '').trim() || `列${i + 1}`);
+  const data = rows.slice(1).map(row => {
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = row[i] ?? ''; });
+    return obj;
+  });
+  return { headers, data };
+}
+
+/**
+ * 拆分合并单元格并填充：
+ * - 对“发生过跨行合并”的列做 forward fill（与 `unmerge_cells.py` 一致）
+ * - 仅填充空值，不覆盖已有值
+ */
+function fillMergedCells(rawRows, ws) {
+  const merges = ws['!merges'] || [];
+  console.log('[fillMergedCells] 原始数据行0:', JSON.stringify(rawRows[0]).slice(0, 200));
+  console.log('[fillMergedCells] 原始数据行1:', JSON.stringify(rawRows[1]).slice(0, 200));
+  console.log('[fillMergedCells] 合并区域 (!merges):', JSON.stringify(merges).slice(0, 500));
+
+  // 深拷贝原始数据，避免修改原数组
+  const result = rawRows.map(row => Array.isArray(row) ? [...row] : row);
+
+  const isBlank = (v) => {
+    if (v === null || v === undefined) return true;
+    if (typeof v === 'string') return v.trim() === '';
+    return false;
+  };
+
+  // 识别“需要向下填充”的列：只要该列参与过跨行合并，就对整列做 ffill
+  const mergeCols = new Set();
+  merges.forEach(m => {
+    if (m.e && m.s && m.e.r > m.s.r) {
+      for (let c = m.s.c; c <= m.e.c; c++) mergeCols.add(c);
+    }
+  });
+
+  // 对需要 ffill 的列进行向下填充（跳过首行）
+  [...mergeCols].sort((a, b) => a - b).forEach(c => {
+    for (let r = 1; r < result.length; r++) {
+      if (!Array.isArray(result[r])) continue;
+      const curVal = result[r][c];
+      if (!isBlank(curVal)) continue;
+      const prevRow = Array.isArray(result[r - 1]) ? result[r - 1] : null;
+      const prevVal = prevRow ? prevRow[c] : undefined;
+      if (!isBlank(prevVal)) result[r][c] = prevVal;
+    }
+  });
+
+  console.log('[fillMergedCells] 填充后行0:', JSON.stringify(result[0]).slice(0, 300));
+  console.log('[fillMergedCells] 填充后行1:', JSON.stringify(result[1]).slice(0, 300));
+  return result;
+}
+
+// ──────────────────────────────────────────────
+// Step 1: Bill
+// ──────────────────────────────────────────────
+async function loadBill(file) {
+  if (!file) return;
+  try {
+    showToast('解析账单中…');
+    const wb = await readSheet(file);
+    // 优先匹配包含"入库"的 Sheet（模糊匹配，防止工作表名带空格/后缀）
+    const targetSheet = wb.SheetNames.find(n => n.includes('入库更新') || n.includes('入库')) || wb.SheetNames[0];
+    console.log(`[loadBill] 所有工作表:`, wb.SheetNames, `→ 选中: "${targetSheet}"`);
+    const sheetName = targetSheet;
+    const ws = wb.Sheets[sheetName];
+    if (!ws) { showToast('未找到 Sheet'); return; }
+
+    // Fill merged cells first + auto detect header row (账单表头常不在第 1 行)
+    const rawRows = sheetToAOA(ws);
+    const filledRows = fillMergedCells(rawRows, ws);
+
+    const wh = STATE.warehouse || 'thailand';
+    const colMap = BILL_COL_MAP[wh] || BILL_COL_MAP.thailand;
+    const headerRowIndex = findHeaderRowIndexByPatterns(filledRows, [colMap.id, colMap.sku, colMap.qty]);
+    console.log(`[loadBill] warehouse=${wh} headerRowIndex=`, headerRowIndex);
+
+    const parsed = parseRowsWithHeaderIndex(filledRows, headerRowIndex);
+    const headers = parsed.headers || [];
+    const data = (parsed.data || []).filter(r => {
+      if (!r) return false;
+      // 过滤“整行为空”的无效行
+      return Object.values(r).some(v => String(v ?? '').trim() !== '');
+    });
+
+    if (!data || data.length === 0) {
+      showToast('账单数据为空，请确认文件格式');
+      return;
+    }
+
+    STATE.billData = data;
+    STATE.billFileName = file.name;
+
+    // Use warehouse-specific column names
+    const allHeaders = headers.length ? headers : Object.keys(data[0] || {});
+    console.log(`[loadBill] warehouse=${wh} allHeaders=`, allHeaders);
+    // 基础校验：防止误把订单/其他文件当账单上传
+    const hasId = hasHeaderMatch(allHeaders, colMap.id);
+    const hasQty = hasHeaderMatch(allHeaders, colMap.qty);
+    if (!hasId || !hasQty) {
+      showToast(`账单列识别失败：未找到「入库单号/数量」相关列，可能上传了错误文件（当前仓库：${wh}）`);
+      console.warn('[loadBill] invalid bill headers:', { wh, hasId, hasQty, allHeaders: allHeaders.slice(0, 30) });
+      return;
+    }
+    const idCol  = pickBestCol(allHeaders, colMap.id, data);
+    const skuCol = pickBestCol(allHeaders, colMap.sku, data);
+    const qtyCol = pickBestCol(allHeaders, colMap.qty, data, { preferNumeric: true });
+    console.log(`[loadBill] pickedCols:`, { idCol, skuCol, qtyCol });
+    STATE.billCols = { idCol, skuCol, qtyCol };
+
+    const billIDs = [...new Set(data.map(r => String(r[idCol] ?? '').trim()).filter(Boolean))];
+    STATE.billIDs = billIDs;
+
+    // Show loaded info
+    document.getElementById('bill-fname').textContent = `${file.name} → ${sheetName}`;
+    const sample = (col) => {
+      const vals = [...new Set(data.slice(0, 6).map(r => String(r[col] ?? '').trim()).filter(Boolean))];
+      return vals.slice(0, 3).join('、') + (vals.length > 3 ? '…' : '');
+    };
+    document.getElementById('bill-stats').innerHTML =
+      `<span class="match-stat">入库单号 <strong>${billIDs.length}</strong> 个</span>` +
+      `<span class="match-stat" style="color:#6B7280">单号列：${idCol}${sample(idCol) ? `（如：${sample(idCol)}）` : ''}</span>` +
+      `<span class="match-stat" style="color:#6B7280">SKU列：${skuCol}${sample(skuCol) ? `（如：${sample(skuCol)}）` : ''}</span>` +
+      `<span class="match-stat" style="color:#6B7280">数量列：${qtyCol}${sample(qtyCol) ? `（如：${sample(qtyCol)}）` : ''}</span>`;
+    document.getElementById('bill-chips').innerHTML =
+      `<div class="chip-label">入库单号示例：</div>` +
+      billIDs.slice(0, 8).map(v => `<span class="chip">${v}</span>`).join('') +
+      (billIDs.length > 8 ? `<span class="chip orange">…还有 ${billIDs.length - 8} 个</span>` : '');
+
+    document.getElementById('bill-loaded').style.display = 'block';
+    document.getElementById('bill-action').style.display = 'block';
+    showToast(`账单加载完成，共 ${billIDs.length} 个入库单号`);
+  } catch(e) {
+    showToast('解析失败: ' + e.message);
+    console.error('loadBill error:', e);
+  }
+}
+
+function resetBill() {
+  STATE.billData = null; STATE.billIDs = [];
+  STATE.matchData = null; STATE.matchedIDs = []; STATE.billToInternalMap = {};
+  STATE.finalIDs = []; STATE.orderData = null; STATE.resultData = [];
+  document.getElementById('bill-loaded').style.display = 'none';
+  document.getElementById('bill-action').style.display = 'none';
+  document.getElementById('file-bill').value = '';
+  if (activeStep >= 2) {
+    ['match', 'id', 'order'].forEach(id => {
+      document.getElementById(`${id}-loaded`) && (document.getElementById(`${id}-loaded`).style.display = 'none');
+      document.getElementById(`${id}-action`) && (document.getElementById(`${id}-action`).style.display = 'none');
+    });
+    activeStep = 1; updateUI();
+  }
+  showToast('账单已清除');
+}
+
+function proceedFromBill() {
+  if (STATE.billIDs.length === 0) { showToast('请先上传账单'); return; }
+  advanceTo(2);
+}
+
+// ──────────────────────────────────────────────
+// Step 2: Match Table
+// ──────────────────────────────────────────────
+async function loadMatch(file) {
+  if (!file) return;
+  try {
+    let headers, data, sheetName;
+    let usingPreprocessed = false;
+    let wb = null; // workbook（仅非预处理时有，用于出口退税兜底）
+
+	    // 优先使用预处理数据（文件名匹配 + 仓库对应工作表存在）
+	    if (matchPrepData && matchPrepData.fileName === file.name) {
+	      const wh = STATE.warehouse || 'thailand';
+	      const targetSheet = selectMatchSheetFromPrep(matchPrepData, wh, STATE.billIDs) || autoSelectMatchSheet(matchPrepData.validSheets || [], wh);
+	      if (targetSheet && matchPrepData.sheets[targetSheet]) {
+	        const sheetInfo = matchPrepData.sheets[targetSheet];
+	        if (sheetInfo.rows) {
+	          // 不信任旧缓存的 headerRowIndex：不同版本识别规则不同，可能导致“内部单号读不到”
+	          const hdrIdx = findMatchHeaderRowIndex(sheetInfo.rows);
+	          const parsed = parseRowsWithHeaderIndex(sheetInfo.rows, hdrIdx);
+	          headers = parsed.headers;
+	          data = parsed.data;
+	        } else {
+	          // 兼容旧缓存格式
+	          headers = sheetInfo.headers;
+	          data = sheetInfo.data;
+	        }
+	        sheetName = targetSheet;
+	        usingPreprocessed = true;
+	        showToast(`使用已预处理数据（${sheetName}）…`);
+	      }
+	    }
+
+    // 若未命中预处理或工作表不存在，正常解析
+	    if (!usingPreprocessed) {
+	      showToast('解析头程匹配表…');
+	      wb = await readSheet(file);
+	      const wh = STATE.warehouse || 'thailand';
+	      sheetName = autoSelectMatchSheet(wb.SheetNames, wh);
+	      const ws = wb.Sheets[sheetName];
+	      const rawRows = sheetToAOA(ws);
+	      if (rawRows.length < 2) { showToast('数据不足'); return; }
+	      const filledRows = fillMergedCells(rawRows, ws);
+	      const headerRowIndex = findMatchHeaderRowIndex(filledRows);
+	      const parsed = parseRowsWithHeaderIndex(filledRows, headerRowIndex);
+	      headers = parsed.headers;
+	      data = parsed.data;
+	    }
+
+    runMatchProcess({ headers, data, sheetName, usingPreprocessed, displayFileName: file.name, wb, mergedCount: usingPreprocessed ? (matchPrepData.sheets[sheetName] || {}).mergedCount : 0 });
+  } catch(e) {
+    showToast('匹配失败: ' + e.message);
+    console.error(e);
+  }
+}
+
+/**
+ * 执行匹配逻辑（供 loadMatch 和 applyMatchFromConfig 共用）
+ * @param {object} opts
+ * @param {Array}  opts.headers           - 工作表列头
+ * @param {Array}  opts.data              - 工作表数据行
+ * @param {string} opts.sheetName         - 工作表名（用于显示）
+ * @param {boolean} opts.usingPreprocessed
+ * @param {string}  opts.displayFileName  - 用于显示的文件名
+ * @param {object}  [opts.wb]             - 原始 workbook（出口退税兜底用，仅非预处理时有）
+ * @param {number}  [opts.mergedCount]    - 合并区数量（预处理数据传入）
+ */
+function runMatchProcess({ headers, data, sheetName, usingPreprocessed, displayFileName, wb, mergedCount }) {
+  // Find internal ID column
+  const neibuCol = headers.find(h => h.includes('内部单号')) || headers.find(h => h.includes('内部订单号'));
+  if (!neibuCol) { showToast('未找到"内部单号"列'); return; }
+
+  // Scan all candidate columns
+  const candidateCols = headers.filter(h => {
+    const s = String(h || '').trim();
+    if (!s) return false;
+    // 不把“内部单号”当成入库单号候选列
+    if (s === neibuCol) return false;
+    if ((s.includes('内部') || s.includes('内部订单')) && (s.includes('单号') || s.includes('编号'))) return false;
+    // 印尼/部分仓库列名可能叫“入库单/上架单”（没有“号”）
+    if (s.includes('入库单') || s.includes('上架单')) return true;
+    // 通用列名
+    return (
+      s.includes('入库单号') || s.includes('干线') || s.includes('转运') ||
+      s.includes('运单') || s.includes('服务单') || s.includes('参考') ||
+      s.includes('单号') || s.includes('编号')
+    );
+  });
+
+  const billToInternal = {};
+  const matchCounts = {};
+  let usedAllColumnsFallback = false;
+
+  // 统一规范化单号：去掉不可见字符/空白/分隔符，统一大写，避免“看得到但匹配不到”
+  const normalizeId = (v) => {
+    const s = String(v ?? '')
+      .replace(/[\u200B-\u200F\uFEFF]/g, '') // zero-width / BOM
+      .replace(/\s+/g, '')
+      .trim();
+    if (!s) return '';
+    // 常见分隔符统一去除（保留字母数字）
+    return s.replace(/[^0-9A-Za-z]/g, '').toUpperCase();
+  };
+  const digitsOnly = (norm) => String(norm || '').replace(/[^0-9]/g, '');
+  const digitsKey = (norm) => {
+    const d = digitsOnly(norm);
+    if (!d) return '';
+    // 去掉前导 0，避免同一数字不同写法匹配不到
+    return d.replace(/^0+/, '') || '0';
+  };
+
+  const bidNormList = (STATE.billIDs || []).map(b => {
+    const n = normalizeId(b);
+    return n ? { bid: String(b).trim(), n } : null;
+  }).filter(Boolean);
+  const bidNormToBid = new Map();      // 规范化后的字母数字串 -> 原入库单号
+  const bidDigitsToBid = new Map();    // 纯数字(去前导0) -> 原入库单号
+  bidNormList.forEach(x => {
+    if (!bidNormToBid.has(x.n)) bidNormToBid.set(x.n, x.bid);
+    const dk = digitsKey(x.n);
+    if (dk && !bidDigitsToBid.has(dk)) bidDigitsToBid.set(dk, x.bid);
+  });
+
+  // 智能规范化：去除空格、换行、逗号、分号，提取所有候选 ID
+  function extractIDs(raw) {
+    return String(raw ?? '')
+      .replace(/[\s,，;；\n\r]+/g, ',')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+  }
+
+  const findMatchedBidFromCell = (cellVal, bidList) => {
+    if (!cellVal) return null;
+    // 优先用规范化后的“快速命中”
+    const cellNorm = normalizeId(cellVal);
+    if (cellNorm) {
+      const direct = bidNormToBid.get(cellNorm);
+      if (direct) return direct;
+
+      // 纯数字匹配：处理“头程表只有数字/缺少IO前缀/前导0丢失”等情况
+      const cdk = digitsKey(cellNorm);
+      if (cdk) {
+        const directDigit = bidDigitsToBid.get(cdk);
+        if (directDigit) return directDigit;
+        // digits 后缀/包含匹配（长度要足够，避免误命中）
+        if (cdk.length >= 10) {
+          for (const [dk, bid] of bidDigitsToBid.entries()) {
+            if (dk.length >= 10 && (dk.endsWith(cdk) || cdk.endsWith(dk))) return bid;
+          }
+        }
+      }
+
+      // 再做包含/后缀匹配（同样用规范化后的字符串）
+      for (const x of bidNormList) {
+        const b = x.n;
+        if (
+          cellNorm === b ||
+          cellNorm.includes(b) ||
+          b.includes(cellNorm) ||
+          (b.length > 8 && (b.endsWith(cellNorm) || cellNorm.endsWith(b))) ||
+          (cellNorm.length > 8 && (cellNorm.endsWith(b) || b.endsWith(cellNorm)))
+        ) return x.bid;
+      }
+    }
+    // 兜底：原始字符串比对（保持兼容）
+    for (const bid of bidList) {
+      const b = String(bid ?? '');
+      if (
+        String(cellVal) === b ||
+        String(cellVal).includes(b) ||
+        b.includes(String(cellVal)) ||
+        (b.length > 8 && (b.endsWith(String(cellVal)) || String(cellVal).endsWith(b))) ||
+        (String(cellVal).length > 8 && (String(cellVal).endsWith(b) || b.endsWith(String(cellVal))))
+      ) return b.trim();
+    }
+    return null;
+  };
+
+  // ── 主表匹配 ───────────────────────────────────────────
+  const doScan = (colsToScan) => {
+    data.forEach(row => {
+      const neibuID = String(row[neibuCol] ?? '').trim();
+      if (!neibuID) return;
+
+      let matchedBid = null;
+      for (const col of colsToScan) {
+        const ids = extractIDs(row[col]);
+        for (const cellVal of ids) {
+          if (!cellVal) continue;
+          const found = findMatchedBidFromCell(cellVal, STATE.billIDs);
+          if (found) { matchedBid = found; matchCounts[col] = (matchCounts[col] || 0) + 1; break; }
+        }
+        if (matchedBid) break;
+      }
+      if (matchedBid) {
+        if (!billToInternal[matchedBid]) billToInternal[matchedBid] = [];
+        if (!billToInternal[matchedBid].some(item => item.nid === neibuID)) {
+          billToInternal[matchedBid].push({ nid: neibuID, row });
+        }
+      }
+    });
+  };
+
+  // 先按“表头关键词候选列”扫描
+  doScan(candidateCols);
+
+  // 若完全未匹配到任何入库单号：回退“全列扫描”
+  const hasAnyMatch = Object.keys(billToInternal).some(b => Array.isArray(billToInternal[b]) && billToInternal[b].length > 0);
+  if (!hasAnyMatch) {
+    usedAllColumnsFallback = true;
+    // 清空并重扫（避免 candidateCols 的误计数干扰诊断）
+    Object.keys(billToInternal).forEach(k => { delete billToInternal[k]; });
+    Object.keys(matchCounts).forEach(k => { delete matchCounts[k]; });
+
+    const allCols = headers.filter(h => h && h !== neibuCol);
+    doScan(allCols);
+  }
+
+  // ── 汇总主表匹配结果 ───────────────────────────────────
+  const seenNids = new Set();
+  const nidList = [];
+  Object.values(billToInternal).forEach(arr => {
+    arr.forEach(item => { if (!seenNids.has(item.nid)) { seenNids.add(item.nid); nidList.push(item.nid); } });
+  });
+
+  // ── 出口退税表补齐（未匹配入库单号） ───────────────────
+  let taxMatched = 0;
+  const unmatchedBids = STATE.billIDs.filter(bid => !billToInternal[bid] || billToInternal[bid].length === 0);
+  if (unmatchedBids.length > 0) {
+    const unmatchedSet = new Set(unmatchedBids);
+
+    const supplementFromTax = (taxHdrs, taxData) => {
+      const taxNeibuCol = taxHdrs.find(h => h.includes('内部单号'));
+      const taxIdCols = taxHdrs.filter(h =>
+        h.includes('入库单') || h.includes('上架单') || h.includes('入库单号') || h.includes('入库编号') || h.includes('编号') || h.includes('单号')
+      );
+      if (!taxNeibuCol || taxIdCols.length === 0) return;
+
+      taxData.forEach(row => {
+        const nid = String(row[taxNeibuCol] ?? '').trim();
+        if (!nid) return;
+        let matchedBid = null;
+        for (const col of taxIdCols) {
+          const ids = extractIDs(row[col]);
+          for (const cellVal of ids) {
+            const found = findMatchedBidFromCell(cellVal, unmatchedBids);
+            if (found) { matchedBid = found; break; }
+          }
+          if (matchedBid) break;
+        }
+        if (!matchedBid || !unmatchedSet.has(matchedBid)) return;
+        if (!billToInternal[matchedBid]) billToInternal[matchedBid] = [];
+        if (!billToInternal[matchedBid].some(item => item.nid === nid)) {
+          billToInternal[matchedBid].push({ nid, row });
+          taxMatched++;
+        }
+      });
+    };
+
+    // 1) 优先从同一文件的 workbook 找「出口退税」sheet
+    if (wb) {
+      const taxSheetName = wb.SheetNames.find(n => n.includes('出口退税'));
+      if (taxSheetName) {
+        const taxWs = wb.Sheets[taxSheetName];
+        const taxRawRows = sheetToAOA(taxWs);
+        if (taxRawRows.length >= 2) {
+          const taxFilledRows = fillMergedCells(taxRawRows, taxWs);
+          const taxHeaderRowIndex = findHeaderRowIndex(taxFilledRows, '内部单号');
+          const { headers: taxHdrs, data: taxData } = parseRowsWithHeaderIndex(taxFilledRows, taxHeaderRowIndex);
+          supplementFromTax(taxHdrs, taxData);
+        }
+      }
+    } else if (usingPreprocessed && matchPrepData && matchPrepData.sheets) {
+      // 2) 预处理模式：从缓存里取「出口退税」sheet 补齐
+      const taxSheetName = (matchPrepData.validSheets || []).find(n => n.includes('出口退税'));
+      const taxInfo = taxSheetName ? matchPrepData.sheets[taxSheetName] : null;
+      if (taxInfo) {
+        const parsed = taxInfo.rows
+          ? parseRowsWithHeaderIndex(taxInfo.rows, taxInfo.headerRowIndex || 0)
+          : { headers: taxInfo.headers || [], data: taxInfo.data || [] };
+        supplementFromTax(parsed.headers, parsed.data);
+      }
+    }
+
+    if (taxMatched > 0) {
+      // 重新统计 nidList
+      const seen2 = new Set();
+      nidList.length = 0;
+      Object.values(billToInternal).forEach(arr => {
+        arr.forEach(item => { if (!seen2.has(item.nid)) { seen2.add(item.nid); nidList.push(item.nid); } });
+      });
+      showToast(`从「出口退税」表补齐 ${taxMatched} 条（未匹配入库单）`);
+    }
+  }
+
+  // ── 更新 STATE ────────────────────────────────────────
+  STATE.matchedIDs = nidList;
+  STATE.billToInternalMap = billToInternal;
+  STATE.matchData = data;
+  STATE.matchFileName = displayFileName || '';
+  STATE.matchSheetName = sheetName;
+
+  // ── 显示结果 ─────────────────────────────────────────
+  const matchedColEntries = Object.entries(matchCounts);
+  const usedSource = taxMatched > 0 && nidList.length > 0 ? ' <span style="font-size:11px;color:#375623">（含出口退税表）</span>' : '';
+  document.getElementById('match-fname').textContent =
+    `${displayFileName || ''} → ${sheetName}` + (usingPreprocessed ? ' ✓已预处理' : '');
+  document.getElementById('match-stats').innerHTML =
+    `<span class="match-stat">${usingPreprocessed ? '已拆分' : '识别'} ${mergedCount || 0} 个合并区</span>` +
+    `<span class="match-stat">数据行 ${data.length}</span>` +
+    `<span class="match-stat">候选匹配列 ${candidateCols.length} 个${usedAllColumnsFallback ? ' · 已启用全列扫描' : ''}</span>` +
+    (nidList.length > 0 ?
+      `<span class="match-stat ok">✅ 匹配 <strong>${nidList.length}</strong> 个内部单号</span>${usedSource}` :
+      `<span class="match-stat ng">⚠️ 未匹配到内部单号</span>`) +
+    (matchedColEntries.length > 0 && nidList.length > 0 ?
+      `<div style="margin-top:5px;font-size:11px;color:#375623">` +
+      matchedColEntries.map(([c, n]) => `<span style="background:#E2EFDA;border:1px solid #70AD47;padding:2px 6px;border-radius:10px;margin-right:3px">${c}（${n}条）</span>`).join('') +
+      `</div>` : '');
+
+  if (nidList.length === 0) {
+    const showCols = (cols) => cols.map(col => {
+      const vals = [...new Set(data.slice(0, 5).map(r => String(r[col] ?? '').trim()).filter(Boolean))];
+      return `<div style="margin-top:2px"><b>${col}：</b>${vals.slice(0, 3).map(v => `<code>${v}</code>`).join(' ') || '<span style="color:#92400E">(空)</span>'}</div>`;
+    }).join('');
+    const sampleVals = showCols(candidateCols);
+    const allCols = headers.filter(h => h && h !== neibuCol);
+    const showAllHint = usedAllColumnsFallback ? `<div style="margin-top:6px;color:#375623"><b>已启用全列扫描：</b>仍未找到任何入库单号命中。</div>` : '';
+    document.getElementById('match-diag').innerHTML =
+      `<div class="diag-box"><b>🔍 主表未匹配（出口退税表也已尝试）</b><br>` +
+      `<b>账单入库单号示例：</b>${STATE.billIDs.slice(0, 5).map(v => `<code>${v}</code>`).join(' ')}<br><br>` +
+      `<b>候选列样值（头程表前5行）：</b><br>${sampleVals}<br>` +
+      showAllHint +
+      `<b>提示：</b>请在步骤3手动输入内部单号</div>`;
+  } else {
+    document.getElementById('match-diag').innerHTML = '';
+  }
+
+  document.getElementById('match-loaded').style.display = 'block';
+  document.getElementById('match-action').style.display = 'block';
+  showToast(`找到 ${nidList.length} 个内部单号`);
+}
+
+/**
+ * 更新 Step2「从配置加载」按钮旁的状态提示
+ */
+function updateStep2MatchStatus() {
+  const el = document.getElementById('match-prep-status');
+  if (!el) return;
+  if (matchPrepData) {
+    const wh = STATE.warehouse || 'thailand';
+    const targetSheet = selectMatchSheetFromPrep(matchPrepData, wh, STATE.billIDs) || autoSelectMatchSheet(matchPrepData.validSheets || [], wh);
+    el.innerHTML = `✅ 已配置 <b>${matchPrepData.fileName}</b>${targetSheet ? ` · 将使用「${targetSheet}」` : ''}`;
+    el.style.color = '#375623';
+  } else {
+    el.innerHTML = `⚠️ 尚未配置，请在「配置」页上传匹配表`;
+    el.style.color = '#92400E';
+  }
+}
+
+/**
+ * 从配置（预处理数据）执行匹配
+ */
+function applyMatchFromConfig() {
+  if (!matchPrepData) {
+    showToast('请先在「配置」页上传并保存匹配表');
+    switchTab('config');
+    return;
+  }
+  const wh = STATE.warehouse || 'thailand';
+  const targetSheet = selectMatchSheetFromPrep(matchPrepData, wh, STATE.billIDs) || autoSelectMatchSheet(matchPrepData.validSheets || [], wh);
+  if (!targetSheet || !matchPrepData.sheets[targetSheet]) {
+    showToast(`未找到「${wh}」对应的工作表，请在配置中重新上传`);
+    switchTab('config');
+    return;
+	  }
+	  const sheetInfo = matchPrepData.sheets[targetSheet];
+	  const parsed = sheetInfo.rows
+	    ? parseRowsWithHeaderIndex(sheetInfo.rows, findMatchHeaderRowIndex(sheetInfo.rows))
+	    : { headers: sheetInfo.headers, data: sheetInfo.data }; // 兼容旧缓存
+	  runMatchProcess({
+	    headers: parsed.headers,
+	    data: parsed.data,
+	    sheetName: targetSheet,
+	    usingPreprocessed: true,
+	    displayFileName: matchPrepData.fileName,
+	    wb: null,
+	    mergedCount: sheetInfo.mergedCount
+	  });
+
+  // 匹配完成后自动跳转到下一步（内部单号）
+  proceedFromMatch();
+}
+
+function resetMatch() {
+  STATE.matchData = null; STATE.matchedIDs = []; STATE.billToInternalMap = {};
+  STATE.finalIDs = []; STATE.orderData = null; STATE.resultData = [];
+  document.getElementById('match-loaded').style.display = 'none';
+  document.getElementById('match-action').style.display = 'none';
+  document.getElementById('match-diag').innerHTML = '';
+  document.getElementById('id-loaded') && (document.getElementById('id-loaded').style.display = 'none');
+  document.getElementById('id-action') && (document.getElementById('id-action').style.display = 'none');
+  if (activeStep >= 3) { activeStep = 2; updateUI(); }
+  showToast('匹配结果已清除');
+}
+
+function proceedFromMatch() {
+  advanceTo(3);
+  renderIDsStep();
+}
+
+// ──────────────────────────────────────────────
+// Step 3: Confirm IDs
+// ──────────────────────────────────────────────
+function renderIDsStep() {
+  const ids = STATE.matchedIDs;
+  STATE.finalIDs = ids;
+
+  const bidCount = Object.keys(STATE.billToInternalMap || {}).length;
+
+  document.getElementById('id-summary').style.display = 'block';
+  document.getElementById('id-summary').innerHTML =
+    `通过入库单号匹配到 <strong>${ids.length}</strong> 个内部单号，来自 <strong>${bidCount}</strong> 个入库单号`;
+
+  document.getElementById('id-copy-row').style.display = ids.length > 0 ? 'flex' : 'none';
+
+  document.getElementById('id-chips').innerHTML =
+    ids.length > 0 ?
+      ids.map(v => `<span class="chip green">${v}</span>`).join('') :
+      `<span style="color:var(--text-muted);font-size:13px">未匹配到内部单号，请在下方手动输入</span>`;
+
+  if (ids.length === 0) {
+    document.getElementById('id-diag').innerHTML =
+      `<div class="hint-box" style="margin-top:8px">✏️ 请手动输入内部单号（逗号或换行分隔）：</div>` +
+      `<textarea id="manual-id-input" class="id-input" style="margin-top:8px;width:100%;border:1.5px solid var(--border);border-radius:8px;padding:10px;font-size:13px;font-family:'Courier New',monospace;min-height:80px;resize:vertical" placeholder="例如：14651636,14651722&#10;或每行一个"></textarea>`;
+  } else {
+    document.getElementById('id-diag').innerHTML = '';
+  }
+
+  document.getElementById('id-action').style.display = 'block';
+}
+
+function copyIDs() {
+  if (!STATE.finalIDs.length) return;
+  navigator.clipboard.writeText(STATE.finalIDs.join(', ')).then(() => {
+    const el = document.getElementById('copied-msg');
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2000);
+  });
+}
+
+function proceedFromIDs() {
+  // Check for manual input
+  const manualEl = document.getElementById('manual-id-input');
+  if (manualEl) {
+    const val = manualEl.value.trim();
+    if (val) {
+      STATE.finalIDs = val.split(/[,，\n]+/).map(s => s.trim()).filter(Boolean);
+    }
+  }
+  if (STATE.finalIDs.length === 0) { showToast('请输入内部单号'); return; }
+  advanceTo(4);
+}
+
+// ──────────────────────────────────────────────
+// Step 4: Order & Generate Result
+// ──────────────────────────────────────────────
+async function loadOrder(file) {
+  if (!file) return;
+  try {
+    showToast('解析订单文件…');
+    const wb = await readSheet(file);
+    const sheetName = wb.SheetNames[0];
+    const ws = wb.Sheets[sheetName];
+    if (!ws) { showToast('未找到 Sheet'); return; }
+
+    const rawRows = sheetToAOA(ws);
+    const filledRows = fillMergedCells(rawRows, ws);
+    const headerRowIndex = findHeaderRowIndexByPatterns(filledRows, ['内部单号', '内部订单号', 'SKU', '商品编码', '数量']);
+    const parsed = parseRowsWithHeaderIndex(filledRows, headerRowIndex);
+    const data = (parsed.data || []).filter(r => r && Object.values(r).some(v => String(v ?? '').trim() !== ''));
+
+    if (!data || data.length === 0) {
+      showToast('订单数据为空，请确认文件格式');
+      return;
+    }
+
+    STATE.orderData = data;
+    STATE.orderFileName = file.name;
+
+    const headers = Object.keys(data[0] || {});
+    const neibuCol = headers.find(k => k.includes('内部订单号') || k.includes('内部单号')) || headers[0];
+    const matched = data.filter(r => STATE.finalIDs.includes(String(r[neibuCol] ?? '').trim()));
+
+    document.getElementById('order-fname').textContent = file.name;
+    document.getElementById('order-stats').innerHTML =
+      `<span class="match-stat">订单 ${data.length} 行</span>` +
+      `<span class="match-stat${matched.length > 0 ? ' ok' : ''}">匹配 ${matched.length} 行</span>`;
+
+    document.getElementById('order-loaded').style.display = 'block';
+    document.getElementById('order-action').style.display = 'block';
+    showToast(`订单加载完成，匹配 ${matched.length} 行`);
+  } catch(e) {
+    showToast('解析失败: ' + e.message);
+    console.error(e);
+  }
+}
+
+function resetOrder() {
+  STATE.orderData = null; STATE.resultData = [];
+  document.getElementById('order-loaded').style.display = 'none';
+  document.getElementById('order-action').style.display = 'none';
+  document.getElementById('file-order').value = '';
+  if (activeStep >= 5) { activeStep = 4; updateUI(); }
+}
+
+function proceedFromOrder() {
+  generateResult();
+}
+
+// ──────────────────────────────────────────────
+// Product Info (SKU mapping)
+// ──────────────────────────────────────────────
+const PRODUCT_KEY = 'inbound_product_info';
+
+let productInfo = null; // { skuToName, nameToSkus, loadedAt, fileName }
+
+function normalizeSkuKey(s) {
+  if (s === null || s === undefined) return '';
+  return String(s)
+    .replace(/[\u200B-\u200D\uFEFF]/g, '') // zero-width
+    .replace(/\s+/g, '')
+    .replace(/[－–—﹣]/g, '-')            // dash variants
+    .trim()
+    .toLowerCase();
+}
+
+async function loadProductInfo(file) {
+  if (!file) return;
+  showToast('解析产品信息…');
+  try {
+    const wb = await readSheet(file);
+    const sheetName = wb.SheetNames.find(n => n.includes('PLM')) || wb.SheetNames[0];
+    const ws = wb.Sheets[sheetName];
+    if (!ws) { showToast('未找到 PLM 工作表'); return; }
+
+    const rawRows = sheetToJSON(wb, sheetName);
+    if (rawRows.length < 2) { showToast('产品信息数据不足'); return; }
+    const filledRows = fillMergedCells(rawRows, ws);
+    const { headers, data } = parseRows(filledRows);
+
+    // SKU candidate columns
+    // 关键：同一行出现的所有“编码/旧编码/辅助码”等都视为同一产品的别名
+    const skuCols = headers.filter(h =>
+      h.includes('商品编码') ||
+      h.includes('SPU') ||
+      h.includes('款式') ||
+      h.includes('SKU') ||
+      h.includes('旧编码') ||
+      h.includes('辅助码') || h.includes('辅助') ||
+      h.includes('编码') ||
+      h.includes('规格') || h.includes('型号')
+    );
+    const nameCol = headers.find(h => h.includes('商品名称'));
+
+    if (!nameCol || skuCols.length === 0) {
+      showToast('未找到商品名称或编码列');
+      return;
+    }
+
+    // Build: productName -> [sku list], deduplicated
+    const products = {};
+    data.forEach(row => {
+      const name = String(row[nameCol] ?? '').trim();
+      if (!name) return;
+      const skus = skuCols.map(col => String(row[col] ?? '').trim()).filter(Boolean);
+      if (!products[name]) products[name] = [];
+      const seen = new Set(products[name].map(normalizeSkuKey));
+      skus.forEach(sku => {
+        const k = normalizeSkuKey(sku);
+        if (!k || seen.has(k)) return;
+        products[name].push(sku);
+        seen.add(k);
+      });
+    });
+
+    if (Object.keys(products).length === 0) {
+      showToast('未提取到任何产品信息，请检查表格格式');
+      return;
+    }
+
+    const productCount = Object.keys(products).length;
+    const skuCount = Object.values(products).reduce((s, arr) => s + (arr ? arr.length : 0), 0);
+    const savedAt = new Date().toLocaleString('zh-CN');
+
+    // Save normalized products to localStorage (or sessionStorage if quota exceeded)
+    const savedData = { products, loadedAt: savedAt, fileName: file.name };
+    let savedIn = 'localStorage';
+    const dataSize = JSON.stringify(savedData).length;
+    console.log('[loadProductInfo] saving:', productCount, 'products,', (dataSize / 1024).toFixed(1), 'KB, sheet:', sheetName, 'headers:', headers.slice(0, 3));
+    let storageError = null;
+    try {
+      localStorage.setItem(PRODUCT_KEY, JSON.stringify(savedData));
+      console.log('[loadProductInfo] saved to localStorage OK');
+    } catch(e) {
+      storageError = e;
+      console.error('[loadProductInfo] localStorage failed:', e.name, e.message);
+      const isQuotaError = e.name === 'QuotaExceededError' || 
+                           e.code === 22 ||  // Safari/IE quota code
+                           String(e.message).toLowerCase().includes('quota') ||
+                           String(e.message).toLowerCase().includes('exceeded') ||
+                           String(e.message).toLowerCase().includes('storage');
+      if (isQuotaError) {
+        try { 
+          sessionStorage.setItem(PRODUCT_KEY, JSON.stringify(savedData)); 
+          savedIn = 'sessionStorage';
+          console.log('[loadProductInfo] saved to sessionStorage OK');
+        } catch(_) { 
+          console.warn('[loadProductInfo] sessionStorage also failed — continuing without persistence');
+        }
+      }
+    }
+
+    // Build runtime maps from products
+    const skuToName = {};
+    Object.entries(products).forEach(([name, skus]) => skus.forEach(sku => {
+      skuToName[sku] = name;
+      const k = normalizeSkuKey(sku);
+      if (k) skuToName[k] = name;
+    }));
+
+    productInfo = { skuToName, nameToSkus: products, loadedAt: savedAt, fileName: file.name };
+
+    // Determine storage status for display
+    const storageStatus = storageError
+      ? savedIn === 'sessionStorage'
+        ? '✅ 已保存，本次会话有效'
+        : '⚠️ 存储空间不足，本次会话有效'
+      : `✅ 已保存，${savedIn === 'sessionStorage' ? '本次会话有效' : '永久生效'}`;
+    if (storageError) {
+      console.warn('[loadProductInfo] storage error (non-fatal):', storageError.message);
+    }
+
+    document.getElementById('prod-fname').textContent = file.name;
+    document.getElementById('prod-stats').innerHTML =
+      `<span class="match-stat">产品 <strong>${productCount}</strong> 个</span>` +
+      `<span class="match-stat">SKU 别名 <strong>${skuCount}</strong> 个</span>` +
+      `<span class="match-stat ok">${storageStatus}</span>`;
+    document.getElementById('prod-loaded').style.display = 'block';
+    document.getElementById('badge-prod').style.display = '';
+    document.getElementById('badge-prod-sm').textContent = productCount;
+    document.getElementById('badge-prod-sm').style.display = 'inline';
+    updateProdHint();
+    showToast(`产品信息加载完成，共 ${productCount} 个产品`);
+  } catch(e) {
+    showToast('解析失败: ' + e.message);
+    console.error('loadProductInfo error:', e);
+  }
+}
+
+function resetProductInfo() {
+  productInfo = null;
+  localStorage.removeItem(PRODUCT_KEY);
+  sessionStorage.removeItem(PRODUCT_KEY);
+  document.getElementById('prod-loaded').style.display = 'none';
+  document.getElementById('badge-prod').style.display = 'none';
+  document.getElementById('badge-prod-sm').style.display = 'none';
+  document.getElementById('file-prod').value = '';
+  updateProdHint();
+  showToast('产品信息已清除');
+}
+
+// ──────────────────────────────────────────────
+// Match Table Preprocessing (拆分填充后保存)
+// ──────────────────────────────────────────────
+const MATCH_PREP_KEY = 'inbound_match_prep';
+const MATCH_PREP_META_KEY = 'inbound_match_prep_meta';
+const MATCH_PREP_DB_NAME = 'inbound_check_db';
+const MATCH_PREP_DB_STORE = 'match_prep';
+const MATCH_PREP_DB_KEY = 'latest';
+
+// matchPrepData structure:
+// {
+//   sheets: { [sheetName]: { headers, data, mergedCount, valid } },
+//   fileName, loadedAt, validSheets: [sheetNames]
+// }
+let matchPrepData = null;
+
+function openMatchPrepDB() {
+  return new Promise((resolve, reject) => {
+    try {
+      const req = indexedDB.open(MATCH_PREP_DB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(MATCH_PREP_DB_STORE)) {
+          db.createObjectStore(MATCH_PREP_DB_STORE);
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
+async function idbSetMatchPrep(data) {
+  const db = await openMatchPrepDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(MATCH_PREP_DB_STORE, 'readwrite');
+    tx.oncomplete = () => { try { db.close(); } catch(_) {} resolve(true); };
+    tx.onerror = () => { try { db.close(); } catch(_) {} reject(tx.error || new Error('IDB 写入失败')); };
+    tx.objectStore(MATCH_PREP_DB_STORE).put(data, MATCH_PREP_DB_KEY);
+  });
+}
+
+async function idbGetMatchPrep() {
+  const db = await openMatchPrepDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(MATCH_PREP_DB_STORE, 'readonly');
+    const req = tx.objectStore(MATCH_PREP_DB_STORE).get(MATCH_PREP_DB_KEY);
+    req.onsuccess = () => { try { db.close(); } catch(_) {} resolve(req.result || null); };
+    req.onerror = () => { try { db.close(); } catch(_) {} reject(req.error); };
+  });
+}
+
+async function idbRemoveMatchPrep() {
+  const db = await openMatchPrepDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(MATCH_PREP_DB_STORE, 'readwrite');
+    tx.oncomplete = () => { try { db.close(); } catch(_) {} resolve(true); };
+    tx.onerror = () => { try { db.close(); } catch(_) {} reject(tx.error || new Error('IDB 删除失败')); };
+    tx.objectStore(MATCH_PREP_DB_STORE).delete(MATCH_PREP_DB_KEY);
+  });
+}
+
+// 仓库名 -> 候选关键词（用于匹配工作表名）
+const WAREHOUSE_SHEET_KEYWORDS = {
+  thailand:    ['泰国', '泰仓', 'thailand', 'Thai'],
+  mexico:      ['墨西哥', '墨仓', 'mexico', 'Mexico'],
+  russia:      ['俄罗斯', '俄仓', 'russia', 'Russia'],
+  philippines: ['菲律宾', '菲仓', 'philippines', 'Philippines'],
+  malaysia:    ['马来西亚', '马仓', 'malaysia', 'Malaysia'],
+  indonesia:   ['印尼', '印度尼西亚', '印尼仓', 'indonesia', 'Indonesia'],
+  vietnam:     ['越南', '越仓', 'vietnam', 'Vietnam'],
+  australia:   ['澳洲', '澳大利亚', '澳仓', 'australia', 'Australia', 'AU'],
+  uk:          ['英国', '英仓', 'uk', 'UK', 'United Kingdom', 'Britain', 'GB'],
+  usa:         ['美国', '美仓', 'usa', 'USA', 'US'],
+};
+
+/**
+ * 根据仓库类型自动选择匹配表中的工作表名
+ */
+function autoSelectMatchSheet(sheetNames, wh) {
+  const targets = WAREHOUSE_SHEET_KEYWORDS[wh] || WAREHOUSE_SHEET_KEYWORDS.thailand;
+  return sheetNames.find(n => targets.some(t => n.includes(t))) || sheetNames[0];
+}
+
+/**
+ * 针对“已预处理匹配表”：若同一仓库存在多个工作表，优先选择“能命中账单入库单号”的那一张
+ */
+function selectMatchSheetFromPrep(prep, wh, billIDs) {
+  try {
+    const sheetNames = (prep && prep.validSheets) ? prep.validSheets : [];
+    if (!sheetNames || sheetNames.length === 0) return null;
+    const targets = WAREHOUSE_SHEET_KEYWORDS[wh] || WAREHOUSE_SHEET_KEYWORDS.thailand;
+    const candidates = sheetNames.filter(n => targets.some(t => String(n || '').includes(t)));
+    const list = candidates.length ? candidates : sheetNames;
+    if (list.length <= 1) return list[0];
+    if (!Array.isArray(billIDs) || billIDs.length === 0) return list[0];
+
+    // 规范化匹配器（与 runMatchProcess 保持一致的核心策略）
+    const normalizeId = (v) => {
+      const s = String(v ?? '')
+        .replace(/[\u200B-\u200F\uFEFF]/g, '')
+        .replace(/\s+/g, '')
+        .trim();
+      if (!s) return '';
+      return s.replace(/[^0-9A-Za-z]/g, '').toUpperCase();
+    };
+    const digitsKey = (norm) => {
+      const d = String(norm || '').replace(/[^0-9]/g, '');
+      if (!d) return '';
+      return d.replace(/^0+/, '') || '0';
+    };
+    const bidNormToBid = new Map();
+    const bidDigitsToBid = new Map();
+    billIDs.slice(0, 80).forEach(b => {
+      const n = normalizeId(b);
+      if (n && !bidNormToBid.has(n)) bidNormToBid.set(n, String(b).trim());
+      const dk = digitsKey(n);
+      if (dk && !bidDigitsToBid.has(dk)) bidDigitsToBid.set(dk, String(b).trim());
+    });
+    const extractIDs = (raw) => String(raw ?? '')
+      .replace(/[\s,，;；\n\r]+/g, ',')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+    const isHit = (cellVal) => {
+      const cellNorm = normalizeId(cellVal);
+      if (!cellNorm) return false;
+      if (bidNormToBid.has(cellNorm)) return true;
+      const dk = digitsKey(cellNorm);
+      if (dk && bidDigitsToBid.has(dk)) return true;
+      // 后缀匹配（避免误命中，长度>=10）
+      if (dk && dk.length >= 10) {
+        for (const k of bidDigitsToBid.keys()) {
+          if (k.length >= 10 && (k.endsWith(dk) || dk.endsWith(k))) return true;
+        }
+      }
+      return false;
+    };
+
+    const scoreSheet = (name) => {
+      const info = prep && prep.sheets ? prep.sheets[name] : null;
+      const rows = info && info.rows ? info.rows : null;
+      if (!rows || rows.length < 2) return 0;
+      const hdrIdx = findMatchHeaderRowIndex(rows);
+      const parsed = parseRowsWithHeaderIndex(rows, hdrIdx);
+      const hdrs = parsed.headers || [];
+      const dt = parsed.data || [];
+      const neibuCol = hdrs.find(h => String(h || '').includes('内部单号')) || hdrs.find(h => String(h || '').includes('内部订单号')) || '';
+      let hits = 0;
+      const maxRows = Math.min(dt.length, 220);
+      for (let i = 0; i < maxRows; i++) {
+        const r = dt[i] || {};
+        for (const h of hdrs) {
+          if (!h || h === neibuCol) continue;
+          const v = r[h];
+          if (v === null || v === undefined || String(v).trim() === '') continue;
+          const ids = extractIDs(v);
+          for (const x of ids) {
+            if (isHit(x)) { hits++; break; }
+          }
+          if (hits >= 8) return hits; // 够用了，提前结束
+        }
+      }
+      return hits;
+    };
+
+    let best = { name: list[0], score: -1, nameScore: 0 };
+    list.forEach(n => {
+      const s = scoreSheet(n);
+      const ns = targets.reduce((acc, t) => acc + (String(n).includes(t) ? 1 : 0), 0);
+      if (s > best.score || (s === best.score && ns > best.nameScore)) best = { name: n, score: s, nameScore: ns };
+    });
+    return best.name || list[0];
+  } catch (e) {
+    console.warn('[selectMatchSheetFromPrep] failed:', e && e.message ? e.message : e);
+    return (prep && prep.validSheets && prep.validSheets[0]) ? prep.validSheets[0] : null;
+  }
+}
+
+/**
+ * 判断某工作表是否为有效的匹配表（含有"内部单号"列）
+ */
+function isValidMatchSheet(headers) {
+  return headers && headers.some(h => h.includes('内部单号') || h.includes('内部订单号'));
+}
+
+async function preprocessMatchTable(file) {
+  if (!file) return;
+  showToast('正在扫描所有工作表…');
+  try {
+    const wb = await readSheet(file);
+	    const sheetNames = wb.SheetNames;
+	    const sheets = {};       // sheetName -> { rows, headerRowIndex, mergedCount, dataRowCount }
+	    const validSheets = [];  // 有"内部单号"列的工作表名
+
+    for (const sheetName of sheetNames) {
+	      const ws = wb.Sheets[sheetName];
+	      if (!ws) continue;
+
+	      const rawRows = sheetToAOA(ws);
+	      if (rawRows.length < 2) continue;
+
+	      const filledRows = fillMergedCells(rawRows, ws);
+	      const headerRowIndex = findMatchHeaderRowIndex(filledRows);
+	      const { headers, data } = parseRowsWithHeaderIndex(filledRows, headerRowIndex);
+	      const mergedCount = (ws['!merges'] || []).length;
+	      const valid = isValidMatchSheet(headers);
+
+	      if (valid) {
+	        validSheets.push(sheetName);
+	        // 仅保存有效工作表，减少体积；rows 用于“导出检查”保持列顺序与完整度
+	        sheets[sheetName] = { rows: filledRows, headerRowIndex, mergedCount, dataRowCount: data.length };
+	      }
+	    }
+
+    if (validSheets.length === 0) {
+      showToast('未在表格中找到含"内部单号"列的工作表');
+      return;
+    }
+
+	    const savedAt = new Date().toLocaleString('zh-CN');
+	    const savedData = {
+	      version: 2,
+	      sheets: sheets,        // 仅有效工作表（rows + headerRowIndex + 统计）
+	      validSheets,           // 有效工作表列表
+	      loadedAt: savedAt,
+	      fileName: file.name,
+	    };
+
+    // 大文件用 IndexedDB 持久化（localStorage 容量太小，会导致“关掉再打开记录不见”）
+    let savedIn = 'indexedDB';
+    try {
+      await idbSetMatchPrep(savedData);
+      localStorage.setItem(MATCH_PREP_META_KEY, JSON.stringify({ fileName: savedData.fileName, loadedAt: savedData.loadedAt, validSheets: savedData.validSheets, version: savedData.version }));
+      console.log('[预处理] 保存到 indexedDB 成功，文件:', savedData.fileName, '工作表:', savedData.validSheets);
+    } catch(e) {
+      console.error('保存预处理匹配表失败(indexedDB):', e);
+      // 兜底：尝试 localStorage/sessionStorage（可能会因为体积大失败）
+      try {
+        localStorage.setItem(MATCH_PREP_KEY, JSON.stringify(savedData));
+        savedIn = 'localStorage';
+        localStorage.setItem(MATCH_PREP_META_KEY, JSON.stringify({ fileName: savedData.fileName, loadedAt: savedData.loadedAt, validSheets: savedData.validSheets, version: savedData.version }));
+        console.log('[预处理] indexedDB失败，已保存到 localStorage');
+      } catch(e2) {
+        try {
+          sessionStorage.setItem(MATCH_PREP_KEY, JSON.stringify(savedData));
+          savedIn = 'sessionStorage';
+          localStorage.setItem(MATCH_PREP_META_KEY, JSON.stringify({ fileName: savedData.fileName, loadedAt: savedData.loadedAt, validSheets: savedData.validSheets, version: savedData.version, _sessionOnly: true }));
+          console.log('[预处理] localStorage失败，已保存到 sessionStorage');
+        } catch(e3) {
+          showToast('⚠️ 保存失败：浏览器存储空间不足');
+          savedIn = 'none';
+        }
+      }
+    }
+
+	    matchPrepData = { ...savedData, _storage: savedIn };
+
+    // 更新 UI：显示所有工作表
+	    document.getElementById('match-prep-fname').textContent = `${file.name}（${validSheets.length} 个仓库工作表）`;
+	    const statsHtml = validSheets.map(name => {
+	      const s = sheets[name];
+	      return `<span class="match-stat">${name} <strong>${s.dataRowCount}</strong> 行${s.mergedCount > 0 ? ` · ${s.mergedCount} 合并区` : ''}</span>`;
+	    }).join('');
+    document.getElementById('match-prep-stats').innerHTML = statsHtml;
+    document.getElementById('match-prep-loaded').style.display = 'block';
+    document.getElementById('badge-match-prep').style.display = '';
+
+    // 同步更新 Step2 状态（立即可用）
+    updateStep2MatchStatus();
+    showToast(`预处理完成！识别 ${validSheets.length} 个工作表`);
+  } catch(e) {
+    showToast('预处理失败: ' + e.message);
+    console.error(e);
+  }
+}
+
+function loadPreprocessedMatch() {
+  try {
+    // 先从 IndexedDB 读取（持久化、容量大）
+    idbGetMatchPrep().then(parsed => {
+      if (parsed && parsed.sheets && parsed.validSheets) {
+        matchPrepData = { ...parsed, _storage: 'indexedDB' };
+        console.log('[启动] 从 indexedDB 加载匹配预处理数据:', matchPrepData.fileName, '工作表:', matchPrepData.validSheets);
+        const { sheets, validSheets, fileName } = matchPrepData;
+        document.getElementById('match-prep-fname').textContent = `${fileName}（上次配置）（${validSheets.length} 个仓库工作表）`;
+        const statsHtml = validSheets.map(name => {
+          const s = sheets[name];
+          const n = (s && typeof s.dataRowCount === 'number') ? s.dataRowCount : (s && s.data ? s.data.length : 0);
+          const mc = (s && s.mergedCount) ? s.mergedCount : 0;
+          return `<span class="match-stat">${name} <strong>${n}</strong> 行${mc > 0 ? ` · ${mc} 合并区` : ''}</span>`;
+        }).join('');
+        document.getElementById('match-prep-stats').innerHTML = statsHtml;
+        document.getElementById('match-prep-loaded').style.display = 'block';
+        document.getElementById('badge-match-prep').style.display = '';
+        updateStep2MatchStatus();
+        return;
+      }
+
+      // 兼容旧版本：从 localStorage / sessionStorage 读取
+      let raw = localStorage.getItem(MATCH_PREP_KEY);
+      let fromSession = false;
+      if (!raw) {
+        raw = sessionStorage.getItem(MATCH_PREP_KEY);
+        fromSession = true;
+      }
+      if (!raw) {
+        console.log('[启动] 无匹配预处理数据（IDB/local/session均无）');
+        return;
+      }
+      const legacy = JSON.parse(raw);
+      if (!legacy || !legacy.sheets || !legacy.validSheets) {
+        console.warn('[启动] 匹配预处理数据格式异常，已清除');
+        localStorage.removeItem(MATCH_PREP_KEY);
+        sessionStorage.removeItem(MATCH_PREP_KEY);
+        return;
+      }
+      matchPrepData = { ...legacy, _storage: fromSession ? 'sessionStorage' : 'localStorage' };
+      console.log('[启动] 从存储加载匹配预处理数据:', matchPrepData.fileName, '工作表:', matchPrepData.validSheets);
+      const { sheets, validSheets, fileName } = matchPrepData;
+      const sessionHint = fromSession ? '（本次会话有效）' : '（上次配置）';
+      document.getElementById('match-prep-fname').textContent = `${fileName}${sessionHint}（${validSheets.length} 个仓库工作表）`;
+      const statsHtml = validSheets.map(name => {
+        const s = sheets[name];
+        const n = (s && typeof s.dataRowCount === 'number') ? s.dataRowCount : (s && s.data ? s.data.length : 0);
+        const mc = (s && s.mergedCount) ? s.mergedCount : 0;
+        return `<span class="match-stat">${name} <strong>${n}</strong> 行${mc > 0 ? ` · ${mc} 合并区` : ''}</span>`;
+      }).join('');
+      document.getElementById('match-prep-stats').innerHTML = statsHtml;
+      document.getElementById('match-prep-loaded').style.display = 'block';
+      document.getElementById('badge-match-prep').style.display = '';
+      updateStep2MatchStatus();
+    }).catch(e => {
+      console.warn('[启动] IndexedDB 读取失败，回退 localStorage:', e && e.message ? e.message : e);
+    });
+  } catch(e) {
+    console.error('加载预处理匹配表失败:', e);
+    localStorage.removeItem(MATCH_PREP_KEY);
+    sessionStorage.removeItem(MATCH_PREP_KEY);
+    localStorage.removeItem(MATCH_PREP_META_KEY);
+  }
+}
+
+	function exportPreprocessedMatch() {
+	  if (!matchPrepData) { showToast('无预处理数据'); return; }
+	  const { sheets, validSheets } = matchPrepData;
+	  const wb = XLSX.utils.book_new();
+	  validSheets.forEach(name => {
+	    const info = sheets[name];
+	    // 新格式：rows（二维数组）保证列顺序与完整度；旧格式：data（对象数组）
+	    const ws = info && info.rows
+	      ? XLSX.utils.aoa_to_sheet(info.rows)
+	      : XLSX.utils.json_to_sheet((info && info.data) ? info.data : []);
+	    XLSX.utils.book_append_sheet(wb, ws, name);
+	  });
+	  const fname = (matchPrepData.fileName || '匹配表').replace(/\.xlsx?$/i, '') + '_已拆分填充.xlsx';
+	  XLSX.writeFile(wb, fname, { cellDates: true });
+	  showToast('已导出 ' + validSheets.length + ' 个工作表：' + fname);
+	}
+
+function resetMatchPrep() {
+  matchPrepData = null;
+  localStorage.removeItem(MATCH_PREP_KEY);
+  sessionStorage.removeItem(MATCH_PREP_KEY);
+  localStorage.removeItem(MATCH_PREP_META_KEY);
+  idbRemoveMatchPrep().catch(() => {});
+  document.getElementById('match-prep-loaded').style.display = 'none';
+  document.getElementById('badge-match-prep').style.display = 'none';
+  document.getElementById('file-match-prep').value = '';
+  updateStep2MatchStatus();
+  showToast('预处理数据已清除');
+}
+
+function initProductInfo() {
+  try {
+    let saved = localStorage.getItem(PRODUCT_KEY);
+    let fromSession = false;
+    if (!saved) {
+      saved = sessionStorage.getItem(PRODUCT_KEY);
+      fromSession = true;
+    }
+    if (saved) {
+      const savedData = JSON.parse(saved);
+      const products = savedData.products || {};
+
+      // Rebuild runtime maps from normalized products array
+      const skuToName = {};
+      const nameToSkus = products;
+      Object.entries(products).forEach(([name, skus]) => skus.forEach(sku => {
+        skuToName[sku] = name;
+        const k = normalizeSkuKey(sku);
+        if (k) skuToName[k] = name;
+      }));
+
+      productInfo = { skuToName, nameToSkus, loadedAt: savedData.loadedAt, fileName: savedData.fileName };
+
+      const productCount = Object.keys(products).length;
+      const skuCount = Object.values(products).reduce((s, arr) => s + (arr ? arr.length : 0), 0);
+      const sessionHint = fromSession ? '（本次会话有效）' : '（上次配置）';
+
+      document.getElementById('prod-fname').textContent = savedData.fileName + sessionHint;
+      document.getElementById('prod-stats').innerHTML =
+        `<span class="match-stat">产品 <strong>${productCount}</strong> 个</span>` +
+        `<span class="match-stat">SKU 别名 <strong>${skuCount}</strong> 个</span>` +
+        `<span class="match-stat ok">✅ 已自动加载</span>` +
+        `<span style="font-size:11px;color:#6B7280;margin-left:4px">（${savedData.loadedAt}）</span>`;
+      document.getElementById('prod-loaded').style.display = 'block';
+      document.getElementById('badge-prod').style.display = '';
+    }
+    // 标签页按钮上显示小圆点
+    const badgeSm = document.getElementById('badge-prod-sm');
+    if (productInfo) {
+      const count = Object.keys(productInfo.nameToSkus || {}).length;
+      badgeSm.textContent = count;
+      badgeSm.style.display = 'inline';
+    }
+    // 更新步骤1的提示
+    updateProdHint();
+  } catch(e) {}
+}
+
+function updateProdHint() {
+  const el = document.getElementById('prod-hint');
+  if (!el) return;
+  if (productInfo) {
+    const count = Object.keys(productInfo.nameToSkus || {}).length;
+    el.innerHTML = `✅ 已配置产品映射（<b>${count}</b> 个产品），SKU 别名将自动参与匹配`;
+  } else {
+    el.innerHTML = '';
+  }
+}
+
+function getSkuAliases(billSku) {
+  if (!productInfo) return null;
+  const name = productInfo.skuToName[billSku] || productInfo.skuToName[normalizeSkuKey(billSku)];
+  if (!name) return null;
+  return productInfo.nameToSkus[name] || [];
+}
+
+// ──────────────────────────────────────────────
+// Generate Result
+// ──────────────────────────────────────────────
+function generateResult() {
+  try {
+    showToast('生成核对结果…');
+
+	    // ── 1. 账单：入库单号+SKU -> 已上数量 ─────────────────────
+	    const billSkuMap = {}; // key: '入库单号||SKU' -> 数量
+	    const bidFeeTotalFromBill = {}; // bid -> 入库费用金额合计（来自账单）
+	    if (STATE.billData && STATE.billData.length > 0) {
+	      const wh = STATE.warehouse || 'thailand';
+	      const colMap = BILL_COL_MAP[wh] || BILL_COL_MAP.thailand;
+	      const allHeaders = Object.keys(STATE.billData[0]);
+	      const preferred = STATE.billCols || {};
+	      const bidCol = (preferred.idCol && allHeaders.includes(preferred.idCol)) ? preferred.idCol : pickBestCol(allHeaders, colMap.id, STATE.billData);
+	      const skuCol = (preferred.skuCol && allHeaders.includes(preferred.skuCol)) ? preferred.skuCol : pickBestCol(allHeaders, colMap.sku, STATE.billData);
+	      const qtyCol = (preferred.qtyCol && allHeaders.includes(preferred.qtyCol)) ? preferred.qtyCol : pickBestCol(allHeaders, colMap.qty, STATE.billData, { preferNumeric: true });
+	      console.log('[generateResult] bill pickedCols:', { wh, bidCol, skuCol, qtyCol });
+
+	      const parseMoney = (v) => parseNumberLike(v);
+	      const parseQty = (v) => parseNumberLike(v) ?? 0;
+
+	      // 自动识别费用列：在可能的列中选择“数值命中最多”的那一列
+	      const norm = (s) => String(s || '').replace(/\s+/g, '').trim();
+	      let feeCol = null;
+
+	      // 澳洲账单：优先使用「实收金额」
+	      if (wh === 'australia') {
+	        const cand = allHeaders.find(h => norm(h) === norm('实收金额') || String(h || '').includes('实收金额'));
+	        if (cand) {
+	          let hits = 0;
+	          STATE.billData.slice(0, 800).forEach(r => {
+	            const n = parseMoney(r[cand]);
+	            if (n !== null) hits++;
+	          });
+	          if (hits > 0) feeCol = cand;
+	        }
+	      }
+	      // 英国账单：优先使用「金额」
+	      if (!feeCol && wh === 'uk') {
+	        const cand = allHeaders.find(h => norm(h) === norm('金额') || String(h || '').includes('金额'));
+	        if (cand) {
+	          let hits = 0;
+	          STATE.billData.slice(0, 800).forEach(r => {
+	            const n = parseMoney(r[cand]);
+	            if (n !== null) hits++;
+	          });
+	          if (hits > 0) feeCol = cand;
+	        }
+	      }
+
+	      // 通用：在可能的列中选择“数值命中最多”的那一列（排除单价类）
+	      if (!feeCol) {
+	        const feeCandidates = allHeaders.filter(h => {
+	          const hh = String(h || '');
+	          if (hh.includes('单价')) return false;
+	          if (hh.includes('计费单价')) return false;
+	          return hh.includes('入库费') || hh.includes('入库费用') || hh.includes('费用金额') || hh.includes('计算') || hh.includes('金额') || hh.includes('费用');
+	        });
+	        if (feeCandidates.length > 0) {
+	          let best = { col: null, hits: 0 };
+	          feeCandidates.forEach(c => {
+	            let hits = 0;
+	            STATE.billData.slice(0, 800).forEach(r => { // 采样，避免过慢
+	              const n = parseMoney(r[c]);
+	              if (n !== null) hits++;
+	            });
+	            if (hits > best.hits) best = { col: c, hits };
+	          });
+	          if (best.col && best.hits > 0) feeCol = best.col;
+	        }
+	      }
+
+	      STATE.billData.forEach(row => {
+	        const bid = String(row[bidCol] ?? '').trim();
+	        const sku = String(row[skuCol] ?? '').trim();
+	        const qty = parseQty(row[qtyCol]);
+	        if (bid && sku) {
+	          const key = `${bid}||${sku}`;
+	          billSkuMap[key] = (billSkuMap[key] || 0) + qty;
+	        }
+	        if (bid && feeCol) {
+	          const fee = parseMoney(row[feeCol]);
+	          if (fee !== null) bidFeeTotalFromBill[bid] = (bidFeeTotalFromBill[bid] || 0) + fee;
+	        }
+	      });
+	    }
+
+	    // ── 2. 构建内部单号信息（含服务商/入库费用金额） ────────────
+	    const getProviderFromMatchRow = (row) => {
+	      if (!row) return '';
+	      if (row['头程服务商']) return String(row['头程服务商']).trim();
+	      const key = Object.keys(row).find(k => k.includes('头程服务商')) ||
+	                  Object.keys(row).find(k => k.includes('服务商'));
+	      return key ? String(row[key] ?? '').trim() : '';
+	    };
+	    const parseMoney = (v) => {
+	      if (v === null || v === undefined) return null;
+	      if (typeof v === 'number' && Number.isFinite(v)) return v;
+	      const s = String(v).replace(/,/g, '').trim();
+	      const m = s.match(/-?\d+(\.\d+)?/);
+	      if (!m) return null;
+	      const n = Number(m[0]);
+	      return Number.isFinite(n) ? n : null;
+	    };
+	    const getFeeFromMatchRow = (row) => {
+	      if (!row) return null;
+	      const direct = row['入库费用金额'];
+	      const directN = parseMoney(direct);
+	      if (directN !== null) return directN;
+	      const keys = Object.keys(row);
+	      const k = keys.find(x => x.includes('头程金额')) ||
+	                keys.find(x => x.includes('入库费用')) ||
+	                keys.find(x => x.includes('费用金额')) ||
+	                keys.find(x => x.includes('金额'));
+	      return k ? parseMoney(row[k]) : null;
+	    };
+	    const nidInfo = {};        // 内部单号 -> { bid, provider, fee }
+	    Object.entries(STATE.billToInternalMap || {}).forEach(([bid, items]) => {
+	      items.forEach(({ nid, row }) => {
+	        if (!nidInfo[nid]) nidInfo[nid] = { bid, provider: getProviderFromMatchRow(row), fee: getFeeFromMatchRow(row) };
+	      });
+	    });
+
+	    // 按入库单号汇总入库费用金额（同一内部单号只计一次）
+	    const bidFeeTotalFromMatch = {}; // bid -> fee sum（来自匹配表，兜底）
+	    Object.values(nidInfo).forEach(info => {
+	      const bid = info.bid;
+	      const fee = info.fee;
+	      if (!bid || fee === null || fee === undefined) return;
+	      bidFeeTotalFromMatch[bid] = (bidFeeTotalFromMatch[bid] || 0) + (Number(fee) || 0);
+	    });
+
+	    // 最终入库费用金额：优先账单，其次匹配表兜底
+	    const bidFeeTotal = {};
+	    const allBidsForFee = new Set([...Object.keys(bidFeeTotalFromBill), ...Object.keys(bidFeeTotalFromMatch)]);
+	    allBidsForFee.forEach(bid => {
+	      if (bidFeeTotalFromBill[bid] !== undefined) bidFeeTotal[bid] = bidFeeTotalFromBill[bid];
+	      else if (bidFeeTotalFromMatch[bid] !== undefined) bidFeeTotal[bid] = bidFeeTotalFromMatch[bid];
+	    });
+
+    // ── 3. 扫描订单，按 内部单号 -> SKU -> 数量 汇总 ─────────
+    const nidSkuAgg = {}; // nid -> sku -> orderQty
+    if (STATE.orderData && STATE.orderData.length > 0) {
+      const neibuCol = Object.keys(STATE.orderData[0]).find(k => k.includes('内部订单号') || k.includes('内部单号'));
+      STATE.orderData.forEach(row => {
+        const nid = String(row[neibuCol] ?? '').trim();
+        if (!nid || !nidInfo[nid]) return;
+        const sku = String(row['商品编码'] || row['SKU'] || '').trim();
+        if (!sku) return;
+        const qty = Number(row['数量']) || 0;
+        if (!nidSkuAgg[nid]) nidSkuAgg[nid] = {};
+        nidSkuAgg[nid][sku] = (nidSkuAgg[nid][sku] || 0) + qty;
+      });
+    }
+
+    // ── 4. 建立账单SKU索引 +（可选）产品别名索引 ──────────────
+    const billSkusByBid = {}; // bid -> Set(billSku)
+    const billSkuNormToRawByBid = {}; // bid -> normSku -> rawBillSku（若歧义则为 null）
+    Object.keys(billSkuMap).forEach(key => {
+      const [bid, billSku] = key.split('||');
+      if (!billSkusByBid[bid]) billSkusByBid[bid] = new Set();
+      billSkusByBid[bid].add(billSku);
+      const nk = normalizeSkuKey(billSku);
+      if (!billSkuNormToRawByBid[bid]) billSkuNormToRawByBid[bid] = {};
+      if (nk) {
+        const prev = billSkuNormToRawByBid[bid][nk];
+        if (prev === undefined) billSkuNormToRawByBid[bid][nk] = billSku;
+        else if (prev !== billSku) billSkuNormToRawByBid[bid][nk] = null; // 多个 raw 映射到同一 norm，标记歧义
+      }
+    });
+
+    // bid -> productName -> [billSku...]
+    const billNameToSkusByBid = {};
+    if (productInfo) {
+      Object.entries(billSkusByBid).forEach(([bid, skuSet]) => {
+        skuSet.forEach(billSku => {
+          const name = productInfo.skuToName[billSku] || productInfo.skuToName[normalizeSkuKey(billSku)];
+          if (!name) return;
+          if (!billNameToSkusByBid[bid]) billNameToSkusByBid[bid] = {};
+          if (!billNameToSkusByBid[bid][name]) billNameToSkusByBid[bid][name] = [];
+          billNameToSkusByBid[bid][name].push(billSku);
+        });
+      });
+    }
+
+    const mapOrderSkuToBillSku = (bid, orderSku) => {
+      if (!bid || !orderSku) return null;
+      const skuSet = billSkusByBid[bid];
+      if (skuSet && skuSet.has(orderSku)) return { billSku: orderSku, isAlias: false };
+      const nk = normalizeSkuKey(orderSku);
+      const raw = billSkuNormToRawByBid[bid] ? billSkuNormToRawByBid[bid][nk] : null;
+      if (raw) return { billSku: raw, isAlias: false };
+      if (!productInfo) return null;
+      const name = productInfo.skuToName[orderSku] || productInfo.skuToName[nk];
+      if (!name) return null;
+      const candidates = billNameToSkusByBid[bid] && billNameToSkusByBid[bid][name] ? billNameToSkusByBid[bid][name] : [];
+      // 同一产品名下若有多个账单SKU，视为歧义，不做自动映射
+      if (candidates.length === 1) return { billSku: candidates[0], isAlias: true };
+      return null;
+    };
+
+    // ── 5. 按 入库单号+SKU 汇总订单数量（用于判断是否一致） ─────
+    // bidBillSkuOrderTotal: bid -> billSku -> 该入库单号+SKU 下所有内部单号的订单数量总和
+    const bidBillSkuOrderTotal = {};
+    Object.entries(nidSkuAgg).forEach(([nid, skus]) => {
+      const bid = nidInfo[nid] ? nidInfo[nid].bid : '';
+      if (!bid) return;
+      if (!bidBillSkuOrderTotal[bid]) bidBillSkuOrderTotal[bid] = {};
+      Object.entries(skus).forEach(([orderSku, qty]) => {
+        const mapped = mapOrderSkuToBillSku(bid, orderSku);
+        if (!mapped) return;
+        const billSku = mapped.billSku;
+        bidBillSkuOrderTotal[bid][billSku] = (bidBillSkuOrderTotal[bid][billSku] || 0) + (Number(qty) || 0);
+      });
+    });
+
+    // ── 6. 预计算每个 入库单号+SKU 的差异与一致性 ──────────────
+    const bidSkuConsistency = {}; // bid -> billSku -> { billQty, orderTotal, diff, isConsistent }
+    Object.keys(billSkuMap).forEach(key => {
+      const [bid, billSku] = key.split('||');
+      const billQty = parseFloat(billSkuMap[key]) || 0;
+      const orderTotal = bidBillSkuOrderTotal[bid] && bidBillSkuOrderTotal[bid][billSku] ? Number(bidBillSkuOrderTotal[bid][billSku]) || 0 : 0;
+      const diff = billQty - orderTotal;
+      if (!bidSkuConsistency[bid]) bidSkuConsistency[bid] = {};
+      bidSkuConsistency[bid][billSku] = { billQty, orderTotal, diff, isConsistent: diff === 0 };
+    });
+
+	    // ── 7. 构建结果：按 内部单号 × SKU 输出 ──────────────
+	    const rows = [];
+	    const shownBillMetrics = new Set(); // bid||billSku：用于把 账单数量/汇总/差异 只显示一次（导出也保持清晰）
+	    const shownBidFee = new Set();      // bid：入库费用金额只显示一次
+
+		    Object.keys(nidInfo).sort((a, b) => Number(a) - Number(b)).forEach(nid => {
+	      const info = nidInfo[nid];
+	      const bid = info.bid;
+	      const provider = info.provider || '';
+
+      const nidSkus = nidSkuAgg[nid] || {}; // 订单中该 nid 的 SKU
+
+      // 收集该入库单号对应的所有账单SKU
+      const billSkus = billSkusByBid[bid] || new Set();
+
+	      // 找到该内部单号中「能映射到账单SKU」的订单SKU
+	      const mappedOrderSkus = Object.keys(nidSkus).filter(orderSku => !!mapOrderSkuToBillSku(bid, orderSku));
+
+		      if (mappedOrderSkus.length === 0) {
+		        const hasAnyOrder = Object.keys(nidSkus).length > 0;
+	        const skuDetails = (() => {
+	          if (!hasAnyOrder) return '';
+	          const entries = Object.entries(nidSkus).filter(([s]) => String(s || '').trim());
+	          const shown = entries.slice(0, 6).map(([s, q]) => `${String(s).trim()}×${Number(q) || 0}`);
+	          const more = entries.length > 6 ? ` …+${entries.length - 6}` : '';
+	          return shown.join('，') + more;
+	        })();
+		        rows.push({
+		          '入库单号': bid,
+		          '内部单号': nid,
+		          '头程服务商': provider,
+		          '入库费用金额': !shownBidFee.has(bid) ? (bidFeeTotal[bid] ?? '-') : '-',
+		          'SKU': '-',
+		          '已上数量（账单）': '-',
+		          '数量（订单）': '-',
+		          '数量（订单汇总）': '-',
+		          '数量差异': '-',
+		          '是否一致': hasAnyOrder ? (`SKU不在账单${skuDetails ? `，${skuDetails}` : ''}`) : '无订单'
+		        });
+		        shownBidFee.add(bid);
+		        return;
+		      }
+
+	      // 输出每行：内部单号 × SKU
+	      mappedOrderSkus.sort().forEach(orderSku => {
+        const mapped = mapOrderSkuToBillSku(bid, orderSku);
+        if (!mapped) return;
+        const billSku = mapped.billSku;
+        if (!billSkus.has(billSku)) return;
+
+        const consistency = bidSkuConsistency[bid] && bidSkuConsistency[bid][billSku]
+          ? bidSkuConsistency[bid][billSku]
+          : { billQty: 0, orderTotal: 0, diff: 0, isConsistent: true };
+
+        const showKey = `${bid}||${billSku}`;
+        const showOnce = !shownBillMetrics.has(showKey);
+        if (showOnce) shownBillMetrics.add(showKey);
+
+        const matchLabel = consistency.isConsistent
+          ? '✓ 一致'
+          : `✗ 差异 ${consistency.diff > 0 ? '+' : ''}${consistency.diff}`;
+
+		        rows.push({
+		          '入库单号': bid,
+		          '内部单号': nid,
+		          '头程服务商': provider,
+		          '入库费用金额': !shownBidFee.has(bid) ? (bidFeeTotal[bid] ?? '-') : '-',
+		          'SKU': mapped.isAlias ? `${billSku} ⇐ ${orderSku} ⚡` : billSku,
+		          '已上数量（账单）': showOnce ? consistency.billQty : '-',
+		          '数量（订单）': nidSkus[orderSku] || 0,
+		          '数量（订单汇总）': showOnce ? consistency.orderTotal : '-',
+		          '数量差异': showOnce ? (consistency.diff === 0 ? '-' : consistency.diff) : '-',
+		          '是否一致': matchLabel
+		        });
+		        shownBidFee.add(bid);
+			      });
+
+	      // 追加提示：有订单SKU无法映射到账单SKU
+	      const unmappedOrderSkus = Object.keys(nidSkus).filter(orderSku => !mapOrderSkuToBillSku(bid, orderSku));
+		      if (unmappedOrderSkus.length > 0) {
+	        const entries = unmappedOrderSkus.map(s => [s, nidSkus[s]]);
+	        const shown = entries.slice(0, 6).map(([s, q]) => `${String(s).trim()}×${Number(q) || 0}`);
+	        const more = entries.length > 6 ? ` …+${entries.length - 6}` : '';
+		        rows.push({
+		          '入库单号': bid,
+		          '内部单号': nid,
+		          '头程服务商': provider,
+		          '入库费用金额': !shownBidFee.has(bid) ? (bidFeeTotal[bid] ?? '-') : '-',
+		          'SKU': '-',
+		          '已上数量（账单）': '-',
+		          '数量（订单）': '-',
+		          '数量（订单汇总）': '-',
+		          '数量差异': '-',
+		          '是否一致': `SKU不在账单，${shown.join('，') + more}`
+		        });
+		        shownBidFee.add(bid);
+		      }
+		    });
+
+	    // 兜底补齐：账单里存在但订单未出现的 入库单号+SKU（订单汇总为 0）
+	    // 否则会出现「账单SKU缺失明细行」导致汇总/一致性被误判
+		    Object.entries(billSkusByBid).forEach(([bid, skuSet]) => {
+		      skuSet.forEach(billSku => {
+	        const showKey = `${bid}||${billSku}`;
+	        if (shownBillMetrics.has(showKey)) return;
+	        const consistency = bidSkuConsistency[bid] && bidSkuConsistency[bid][billSku]
+	          ? bidSkuConsistency[bid][billSku]
+	          : { billQty: parseFloat(billSkuMap[showKey]) || 0, orderTotal: 0, diff: (parseFloat(billSkuMap[showKey]) || 0) - 0, isConsistent: false };
+	        const matchLabel = consistency.isConsistent
+	          ? '✓ 一致'
+	          : `✗ 差异 ${consistency.diff > 0 ? '+' : ''}${consistency.diff}`;
+	        shownBillMetrics.add(showKey);
+		        rows.push({
+		          '入库单号': bid,
+		          '内部单号': '-',
+		          '头程服务商': '',
+		          '入库费用金额': !shownBidFee.has(bid) ? (bidFeeTotal[bid] ?? '-') : '-',
+		          'SKU': billSku,
+		          '已上数量（账单）': consistency.billQty,
+		          '数量（订单）': 0,
+		          '数量（订单汇总）': consistency.orderTotal,
+		          '数量差异': consistency.diff === 0 ? '-' : consistency.diff,
+		          '是否一致': matchLabel
+		        });
+		        shownBidFee.add(bid);
+		      });
+		    });
+
+	    // Sort by 内部单号
+	    rows.sort((a, b) => {
+	      return String(a['内部单号']).localeCompare(String(b['内部单号']), undefined, { numeric: true });
+	    });
+
+    const whName = warehouseDisplayName(STATE.warehouse);
+    rows.forEach(r => {
+      if (!r['海外仓']) r['海外仓'] = whName;
+    });
+    STATE.resultData = rows;
+    _allResultData = rows;
+    // 默认显示不一致/无订单，勾选框默认勾中
+    _ngFilterActive = true;
+    document.getElementById('filter-ng-only').checked = true;
+
+    // Update step 3 badge
+    document.getElementById('badge-3').style.display = '';
+    document.getElementById('badge-4').style.display = '';
+
+    // Show filter toggle
+    document.getElementById('result-filter-row').style.display = 'flex';
+
+    advanceTo(5);
+
+    const ngRows = rows.filter(r => {
+      const m = r['是否一致'] || '';
+      return !String(m).startsWith('✓') && String(m) !== '-';
+    });
+    updateResultMeta(rows, ngRows.length, true);
+    renderResultTable(ngRows);
+    showToast('核对结果已生成！');
+  } catch(e) {
+    showToast('生成失败: ' + e.message);
+    console.error(e);
+  }
+}
+
+function renderResultTable(data) {
+  const wrap = document.getElementById('result-table-wrap');
+  if (!data || data.length === 0) {
+    wrap.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:30px">无数据</p>';
+    return;
+  }
+  const cols = RESULT_COLS;
+  let html = '<table>';
+  html += '<colgroup>';
+  cols.forEach(c => {
+    const w = RESULT_COL_WIDTHS[c] || 120;
+    html += `<col style="width:${w}px">`;
+  });
+  html += '</colgroup>';
+  html += '<thead><tr>';
+  cols.forEach(label => {
+    const cls =
+      label === 'SKU' ? 'col-sku' :
+      (label === '已上数量（账单）' || label === '数量（订单）' || label === '数量（订单汇总）' || label === '数量差异') ? 'col-num' :
+      (label === '是否一致' ? 'col-match' : '');
+    html += `<th class="${cls}">${dispCol(label)}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  const normalizeBillSkuKey = (skuCell) => {
+    const raw = String(skuCell || '').trim();
+    if (!raw || raw === '-') return '';
+    // alias 展示：账单SKU ⇐ 订单SKU ⚡
+    const left = raw.includes('⇐') ? raw.split('⇐')[0] : raw;
+    return left.replace(/⚡/g, '').trim();
+  };
+
+  // 已显示过的 入库单号+账单SKU，只在第一次显示账单数量/汇总/差异
+  const shownBillMetrics = new Set();
+  let prevBid = null, alt = 0;
+  data.forEach(row => {
+    const bid = row['入库单号'] || '';
+    const skuCell = row['SKU'] || '';
+    const billSkuKey = normalizeBillSkuKey(skuCell);
+    const key = `${bid}||${billSkuKey || skuCell}`;
+    const isFirstBill = !shownBillMetrics.has(key);
+    if (isFirstBill) shownBillMetrics.add(key);
+
+    if (bid !== prevBid) { prevBid = bid; alt++; }
+    const baseColor = alt % 2 === 0 ? '#F7F9FC' : '#FFFFFF';
+
+    const match = row['是否一致'] || '';
+    const isOk = String(match).startsWith('✓');
+    const isNg = String(match).startsWith('✗') || String(match).includes('无订单') || String(match).includes('差异') || String(match).includes('映射差异');
+
+    html += '<tr>';
+    cols.forEach(label => {
+      let val = row[label] ?? '';
+      let style = baseColor;
+      const cls =
+        label === 'SKU' ? 'col-sku' :
+        (label === '已上数量（账单）' || label === '数量（订单）' || label === '数量（订单汇总）' || label === '数量差异') ? 'col-num' :
+        (label === '是否一致' ? 'col-match' : '');
+      if (label === '是否一致') {
+        if (isOk)      style = 'font-weight:700;color:#375623;background:#E2EFDA';
+        else if (isNg) style = 'font-weight:700;color:#C00000;background:#FCE4D6';
+        else           style = 'color:#6B7280;background:#F7F9FC';
+      } else if (label === '数量差异' && val !== '-' && val !== '' && !isNaN(Number(val))) {
+        if (Number(val) !== 0) style = 'font-weight:700;color:#C00000;background:#FCE4D6';
+      } else if (label === '已上数量（账单）') {
+        // 同一入库单号+账单SKU 账单数量只显示一次（若数据已是 '-' 则不覆盖）
+        if (String(val) !== '-' && String(val) !== '') val = isFirstBill ? val : '-';
+        style = baseColor;
+      } else if (label === '数量（订单）') {
+        style = baseColor;
+      } else if (label === '数量（订单汇总）') {
+        if (String(val) !== '-' && String(val) !== '') val = isFirstBill ? val : '-';
+        style = baseColor;
+      } else if (label === '数量差异') {
+        if (String(val) !== '-' && String(val) !== '') val = isFirstBill ? val : '-';
+      }
+      html += `<td class="${cls}" style="${style}">${val}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+let _ngFilterActive = false;
+let _allResultData = [];
+
+function toggleNgFilter() {
+  _ngFilterActive = document.getElementById('filter-ng-only').checked;
+  if (_ngFilterActive) {
+    const ngRows = _allResultData.filter(r => {
+      const m = r['是否一致'] || '';
+      return !String(m).startsWith('✓') && String(m) !== '-';
+    });
+    renderResultTable(ngRows);
+    updateResultMeta(_allResultData, ngRows.length, true);
+  } else {
+    renderResultTable(_allResultData);
+    updateResultMeta(_allResultData, null, false);
+  }
+}
+
+// 构建按入库单号汇总的数据（被页面渲染和 Excel 导出共用）
+function buildSummaryRows(data) {
+  if (!data || data.length === 0) return [];
+  const normalizeBillSkuKey = (skuCell) => {
+    const raw = String(skuCell || '').trim();
+    if (!raw || raw === '-') return '';
+    const left = raw.includes('⇐') ? raw.split('⇐')[0] : raw;
+    return left.replace(/⚡/g, '').trim();
+  };
+  // 按入库单号分组
+  const groups = {};
+  data.forEach(row => {
+    const bid = row['入库单号'] || '';
+    if (!groups[bid]) groups[bid] = [];
+    groups[bid].push(row);
+  });
+	  const summaryRows = Object.entries(groups).map(([bid, rows]) => {
+	    // 入库费用金额：同入库单号取第一个可用数值（明细里通常只显示一次）
+	    let fee = null;
+	    rows.some(r => {
+	      const v = r['入库费用金额'];
+	      const n = Number(v);
+	      if (v !== '-' && v !== '' && Number.isFinite(n)) { fee = n; return true; }
+	      if (typeof v === 'string') {
+	        const m = v.replace(/,/g, '').match(/-?\d+(\.\d+)?/);
+	        if (m) { const nn = Number(m[0]); if (Number.isFinite(nn)) { fee = nn; return true; } }
+	      }
+	      return false;
+	    });
+    // 同一入库单号+账单SKU：账单数量/订单汇总/差异只取一次（明细中已用 '-' 去重）
+    const skuBillMap = {};   // billSku -> billQty
+    const skuOrderMap = {};  // billSku -> orderTotal
+    rows.forEach(r => {
+      const billSku = normalizeBillSkuKey(r['SKU'] || '');
+      if (!billSku) return;
+      const billQty = parseFloat(r['已上数量（账单）']);
+      const orderTotal = parseFloat(r['数量（订单汇总）']);
+      if (!isNaN(billQty) && skuBillMap[billSku] == null) skuBillMap[billSku] = billQty;
+      if (!isNaN(orderTotal) && skuOrderMap[billSku] == null) skuOrderMap[billSku] = orderTotal;
+    });
+
+    const hasBill = Object.keys(skuBillMap).length > 0;
+    const hasOrder = Object.keys(skuOrderMap).length > 0;
+
+    const billSum = hasBill ? Object.values(skuBillMap).reduce((s, v) => s + (Number(v) || 0), 0) : 0;
+    const orderSum = hasOrder ? Object.values(skuOrderMap).reduce((s, v) => s + (Number(v) || 0), 0) : 0;
+    const diff = (hasBill && hasOrder) ? billSum - orderSum : null;
+
+    const hasNg = Object.keys(skuBillMap).some(billSku => {
+      const b = Number(skuBillMap[billSku]) || 0;
+      const o = Number(skuOrderMap[billSku]) || 0;
+      return (b - o) !== 0;
+    });
+	    return {
+	      '入库单号': bid,
+	      '入库费用金额': fee !== null ? Number(Number(fee).toFixed(2)) : '-',
+	      '已上数量（账单）': hasBill ? billSum : '-',
+	      '数量（订单）': hasOrder ? orderSum : '-',
+	      '数量差异': diff !== null ? diff : '-',
+	      '是否一致': hasNg ? '✗ 不一致' : '✓ 一致'
+	    };
+	  });
+  summaryRows.sort((a, b) => String(a['入库单号']).localeCompare(String(b['入库单号'])));
+  return summaryRows;
+}
+
+function updateResultMeta(rows, ngFilteredCount, showFiltered) {
+  const normalizeBillSkuKey = (skuCell) => {
+    const raw = String(skuCell || '').trim();
+    if (!raw || raw === '-') return '';
+    const left = raw.includes('⇐') ? raw.split('⇐')[0] : raw;
+    return left.replace(/⚡/g, '').trim();
+  };
+
+  // 以 入库单号+SKU（账单SKU） 为单位统计一致/不一致，避免同一SKU多内部单号重复计数
+  const uniqSkuKeys = new Set();
+  let okCount = 0;
+  let ngCount = 0;
+  rows.forEach(r => {
+    const bid = String(r['入库单号'] || '').trim();
+    const skuKey = normalizeBillSkuKey(r['SKU'] || '');
+    if (!bid || !skuKey) return;
+    const k = `${bid}||${skuKey}`;
+    if (uniqSkuKeys.has(k)) return;
+    uniqSkuKeys.add(k);
+    const m = String(r['是否一致'] || '');
+    if (m.startsWith('✓')) okCount++;
+    else if (m && m !== '-') ngCount++;
+  });
+
+  const totalBids = uniqSkuKeys.size > 0 ? new Set([...uniqSkuKeys].map(k => k.split('||')[0])).size : new Set(rows.map(r => r['入库单号'])).size;
+  const filterHint = showFiltered ? `（已筛选，共 ${ngFilteredCount} 条不一致）` : '';
+  document.getElementById('result-meta').innerHTML =
+    `<span class="result-stat">入库单 ${totalBids} 个</span>` +
+    `<span class="result-stat">${showFiltered ? `筛选后 ${rows.length}` : '明细 ' + rows.length} 行</span>` +
+    `<span class="result-stat ok">✓ 一致 ${okCount}</span>` +
+    (ngCount > 0 ? `<span class="result-stat ng">✗ 不一致 ${ngCount}${filterHint}</span>` : '');
+}
+
+
+
+async function saveResult() {
+  await ensureHistoryLoaded();
+  if (!STATE.resultData || STATE.resultData.length === 0) { showToast('无数据'); return; }
+  const ok = await saveToHistory(STATE.resultData);
+  if (!ok) return;
+  const count = getHistory().length;
+  const badge = document.getElementById('history-badge');
+  badge.style.display = 'inline';
+  badge.textContent = count;
+  // 若当前在“查询历史”页，立即刷新展示，避免“总是 1 条/不更新”的错觉
+  try {
+    const tabHistory = document.getElementById('tab-c-history');
+    if (tabHistory && tabHistory.classList.contains('active')) await loadHistoryList();
+  } catch (_) {}
+  showToast(`已保存，可到「查询历史」查看`);
+}
+
+function downloadResult() {
+  if (!STATE.resultData || STATE.resultData.length === 0) { showToast('无数据'); return; }
+  const wb = XLSX.utils.book_new();
+
+  // Sheet1: 明细
+  // 明细不展示入库费用金额（费用仅在“按入库单号汇总”展示）
+  const detailCols = RESULT_COLS; // 明细列顺序固定
+  const detailAOA = [
+    detailCols.map(c => dispCol(c)),
+    ...STATE.resultData.map(r => detailCols.map(c => (r[c] ?? '')))
+  ];
+  const wsDetail = XLSX.utils.aoa_to_sheet(detailAOA);
+  XLSX.utils.book_append_sheet(wb, wsDetail, '入库数量核对（明细）');
+
+  // Sheet2: 按入库单号汇总
+  const summaryRows = buildSummaryRows(STATE.resultData);
+  if (summaryRows.length > 0) {
+    const summaryCols = ['入库单号', '入库费用金额', '已上数量（账单）', '数量（订单）', '数量差异', '是否一致'];
+    const summaryAOA = [
+      summaryCols.map(c => dispCol(c)),
+      ...summaryRows.map(r => summaryCols.map(c => (r[c] ?? '')))
+    ];
+    const wsSummary = XLSX.utils.aoa_to_sheet(summaryAOA);
+    XLSX.utils.book_append_sheet(wb, wsSummary, '按入库单号汇总');
+  }
+
+  XLSX.writeFile(wb, '入库数量核对.xlsx');
+  showToast('文件已下载');
+}
+
+function changeWarehouse() {
+  const sel = document.getElementById('warehouse-select');
+  if (sel.value === 'more') {
+    showToast('更多国家功能开发中，请联系管理员');
+    sel.value = STATE.warehouse || 'thailand';
+    return;
+  }
+  if (STATE.resultData && STATE.resultData.length > 0) {
+    if (!confirm('切换仓库将清空当前所有数据，确定继续？')) {
+      sel.value = STATE.warehouse || 'thailand';
+      return;
+    }
+  }
+  STATE.warehouse = sel.value;
+  // 更新提示文字
+  const hints = {
+    thailand:   '上传「2026【头程】数据管理-泰国仓」',
+    mexico:     '上传「2026【头程】数据管理-墨西哥仓」',
+    russia:     '上传「2026【头程】数据管理-俄罗斯仓」',
+    philippines:'上传「2026【头程】数据管理-菲律宾仓」',
+    malaysia:   '上传「2026【头程】数据管理-马来西亚仓」',
+    indonesia:  '上传「2026【头程】数据管理-印尼仓」',
+    vietnam:    '上传「2026【头程】数据管理-越南仓」',
+    australia:  '上传「2026【头程】数据管理-澳洲仓」',
+    uk:         '上传「2026【头程】数据管理-英国仓」',
+    usa:        '上传「2026【头程】数据管理-美国仓」',
+  };
+  const hintEl = document.getElementById('match-hint');
+  if (hintEl) hintEl.textContent = hints[sel.value] || hints.thailand;
+  // 触发重置
+  resetAll(true);
+}
+
+function resetAll(silent) {
+  if (!silent && !confirm('确定要重置整个流程吗？所有已上传的文件和数据将被清除。')) return;
+  // Reset all state
+  STATE.billData = null;
+  STATE.billFileName = '';
+  STATE.billIDs = [];
+  STATE.matchData = null;
+  STATE.matchFileName = null;
+  STATE.matchedIDs = [];
+  STATE.billToInternalMap = {};
+  STATE.finalIDs = [];
+  STATE.orderData = null;
+  STATE.orderFileName = '';
+  STATE.resultData = [];
+
+  // Clear file inputs
+  document.getElementById('file-bill').value = '';
+  document.getElementById('file-order').value = '';
+
+  // Hide loaded sections (correct IDs)
+  const loadedIds = ['bill-loaded', 'bill-action', 'match-loaded', 'match-action', 'id-action', 'order-loaded', 'order-action'];
+  updateStep2MatchStatus();
+  loadedIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+
+  // Clear result sections
+  document.getElementById('result-meta').innerHTML = '';
+  document.getElementById('result-table-wrap').innerHTML = '';
+
+  // Reset filter state (全局变量，防止重置后筛选残留)
+  _allResultData = [];
+  _ngFilterActive = false;
+  const filterRow = document.getElementById('result-filter-row');
+  if (filterRow) filterRow.style.display = 'none';
+  const filterCb = document.getElementById('filter-ng-only');
+  if (filterCb) filterCb.checked = false;
+
+  // Reset progress
+  activeStep = 1;
+  updateUI();
+  ensureTopNavVisible();
+  const active = document.querySelector('.tab-content.active');
+  if (active && typeof active.scrollTo === 'function') {
+    active.scrollTo({ top: 0, behavior: 'smooth' });
+  } else {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  if (!silent) showToast('已重置，请重新上传文件');
+}
+
+function copyResultText() {
+  if (!STATE.resultData || STATE.resultData.length === 0) { showToast('无数据'); return; }
+  const cols = RESULT_COLS;
+  let text = cols.map(c => dispCol(c)).join('\t') + '\n';
+  STATE.resultData.forEach(row => { text += cols.map(c => (row[c] ?? '')).join('\t') + '\n'; });
+  navigator.clipboard.writeText(text).then(() => showToast('已复制到剪贴板'));
+}
+
+// ──────────────────────────────────────────────
+// Utilities
+// ──────────────────────────────────────────────
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.remove('hide');
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => el.classList.add('hide'), 2500);
+}
+
+function scrollToTop() {
+  ensureTopNavVisible();
+  const active = document.querySelector('.tab-content.active');
+  if (active && typeof active.scrollTo === 'function') {
+    active.scrollTo({ top: 0, behavior: 'smooth' });
+  } else {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+updateUI();
+initProductInfo();
+loadPreprocessedMatch();
+updateChromeHeight();
+window.addEventListener('resize', updateChromeHeight);
+// 预加载历史（IndexedDB），避免查询/保存时“看似丢失”
+ensureHistoryLoaded().catch(() => {});
+try {
+  const whSel = document.getElementById('history-wh');
+  if (whSel) whSel.onchange = () => { try { loadHistoryList(); } catch (_) {} try { onHistoryFilterChange(); } catch (_) {} };
+} catch (_) {}
+console.log('[启动] matchPrepData 已加载:', matchPrepData ? `文件=${matchPrepData.fileName}, 工作表=${matchPrepData.validSheets?.length}个` : 'null');
+</script>
+</body>
+</html>
