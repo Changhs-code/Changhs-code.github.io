@@ -1228,8 +1228,6 @@ function ensureFreightToolLoaded() {
 const HISTORY_KEY = 'inbound_check_history';
 const BID_NOTE_KEY = 'inbound_bid_notes';
 const HISTORY_BACKUP_KEY = 'inbound_check_history_backup_v1';
-const HISTORY_SEED_FILE = './history_seed.json';
-const HISTORY_SEED_MARK_KEY = 'inbound_history_seed_applied_v20260420';
 
 const HISTORY_DB_NAME = 'inbound_check_history_db';
 const HISTORY_DB_VERSION = 1;
@@ -2220,72 +2218,9 @@ async function deleteAllHistory() {
   const ok = await persistHistory([], { reason: 'deleteAllHistory' });
   try { localStorage.removeItem(HISTORY_KEY); } catch(_) {}
   try { sessionStorage.removeItem(HISTORY_KEY); } catch(_) {}
-  try { localStorage.removeItem(HISTORY_SEED_MARK_KEY); } catch(_) {}
   document.getElementById('history-badge').style.display = 'none';
   await loadHistoryList();
   showToast('已清空全部历史');
-}
-
-async function autoImportSeedHistoryOnce() {
-  try {
-    await ensureHistoryLoaded();
-    try {
-      if (localStorage.getItem(HISTORY_SEED_MARK_KEY) === '1') return;
-    } catch (_) {}
-
-    const resp = await fetch(HISTORY_SEED_FILE + '?v=20260420', { cache: 'no-store' });
-    if (!resp.ok) return;
-    const parsed = await resp.json();
-    const importedRaw = _historyToArrayFromImport(parsed);
-    if (!Array.isArray(importedRaw) || importedRaw.length === 0) {
-      try { localStorage.setItem(HISTORY_SEED_MARK_KEY, '1'); } catch (_) {}
-      return;
-    }
-
-    const current = getHistory();
-    const mergedMap = new Map();
-    current.forEach(item => {
-      const n = _normalizeImportedHistoryEntry(item);
-      if (!n) return;
-      mergedMap.set(_historyEntryKey(n), n);
-    });
-
-    let importedValid = 0;
-    importedRaw.forEach(item => {
-      const n = _normalizeImportedHistoryEntry(item);
-      if (!n) return;
-      importedValid += 1;
-      const key = _historyEntryKey(n);
-      const old = mergedMap.get(key);
-      if (!old) {
-        mergedMap.set(key, n);
-      } else if (_historyEntryScore(n) >= _historyEntryScore(old)) {
-        mergedMap.set(key, n);
-      }
-    });
-
-    if (importedValid === 0) {
-      try { localStorage.setItem(HISTORY_SEED_MARK_KEY, '1'); } catch (_) {}
-      return;
-    }
-
-    const merged = Array.from(mergedMap.values()).sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
-    const ok = await persistHistory(merged, { reason: 'autoImportSeedHistory' });
-    if (!ok) return;
-
-    try { localStorage.setItem(HISTORY_SEED_MARK_KEY, '1'); } catch (_) {}
-    const badge = document.getElementById('history-badge');
-    if (badge) {
-      badge.style.display = 'inline';
-      badge.textContent = String(merged.length);
-    }
-    const tabHistory = document.getElementById('tab-c-history');
-    if (tabHistory && tabHistory.classList.contains('active')) {
-      await loadHistoryList();
-    }
-  } catch (e) {
-    console.warn('[history] 自动导入预置历史失败:', e && e.message ? e.message : e);
-  }
 }
 
 // ──────────────────────────────────────────────
@@ -4500,7 +4435,7 @@ loadPreprocessedMatch();
 updateChromeHeight();
 window.addEventListener('resize', updateChromeHeight);
 // 预加载历史（IndexedDB），避免查询/保存时“看似丢失”
-ensureHistoryLoaded().then(() => autoImportSeedHistoryOnce()).catch(() => {});
+ensureHistoryLoaded().catch(() => {});
 try {
   const whSel = document.getElementById('history-wh');
   if (whSel) whSel.onchange = () => { try { loadHistoryList(); } catch (_) {} try { onHistoryFilterChange(); } catch (_) {} };
