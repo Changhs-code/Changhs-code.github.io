@@ -877,7 +877,11 @@
           <option value="ng">仅不一致/异常</option>
         </select>
 	      <button class="btn btn-success" onclick="exportHistoryQuery()">📥 导出查询记录</button>
-        <button class="btn btn-secondary" onclick="restoreHistoryBackup()">⏪ 恢复备份</button>
+      <button class="btn btn-success" onclick="exportAllHistoryBackup()">🧾 导出全部历史</button>
+      <label class="btn btn-secondary" style="cursor:pointer">📤 导入历史
+        <input type="file" id="history-import-file" accept=".json,application/json" style="display:none" onchange="importAllHistoryBackup(this.files && this.files[0]); this.value='';">
+      </label>
+      <button class="btn btn-secondary" onclick="restoreHistoryBackup()">⏪ 恢复备份</button>
 	    </div>
 	    <div class="btn-row" style="margin-top:12px">
 	      <button class="btn btn-primary" onclick="searchHistory()">🔍 查询</button>
@@ -1206,7 +1210,7 @@ function switchTab(tab) {
   if (tab === 'freight') ensureFreightToolLoaded();
 }
 
-const FREIGHT_TOOL_RELATIVE_PATH = '../头程账单匹配工具.html';
+const FREIGHT_TOOL_RELATIVE_PATH = './头程账单匹配工具.html';
 let _freightToolLoaded = false;
 
 function ensureFreightToolLoaded() {
@@ -2087,6 +2091,123 @@ function exportHistoryQuery() {
   const fname = `历史查询_${whName}_${new Date().toISOString().slice(0, 10)}.xlsx`;
   XLSX.writeFile(wb, fname, { cellDates: true });
   showToast('已导出：' + fname);
+}
+
+function exportAllHistoryBackup() {
+  ensureHistoryLoaded().then(() => {
+    const history = getHistory();
+    if (!Array.isArray(history) || history.length === 0) {
+      showToast('暂无可导出的历史记录');
+      return;
+    }
+    const payload = {
+      schema: 'inbound-history-v1',
+      exportedAt: new Date().toISOString(),
+      total: history.length,
+      history
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `入库核对历史备份_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast(`已导出全部历史（${history.length} 条）`);
+  }).catch(() => {
+    showToast('导出失败，请重试');
+  });
+}
+
+function _historyToArrayFromImport(data) {
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.history)) return data.history;
+  return null;
+}
+
+function _normalizeImportedHistoryEntry(entry) {
+  if (!entry || typeof entry !== 'object') return null;
+  const bids = Array.isArray(entry.bids)
+    ? [...new Set(entry.bids.map(v => String(v || '').trim()).filter(Boolean))]
+    : [];
+  const rows = Array.isArray(entry.rows) ? entry.rows.filter(r => r && typeof r === 'object') : [];
+  if (bids.length === 0 || rows.length === 0) return null;
+  return {
+    id: Number(entry.id) || Date.now(),
+    savedAt: String(entry.savedAt || new Date().toLocaleString('zh-CN')),
+    warehouse: String(entry.warehouse || ''),
+    bids,
+    rows
+  };
+}
+
+function _historyEntryKey(entry) {
+  const bids = Array.isArray(entry.bids) ? [...entry.bids].sort() : [];
+  return bids.join('||');
+}
+
+function _historyEntryScore(entry) {
+  const rowCount = Array.isArray(entry.rows) ? entry.rows.length : 0;
+  const idScore = Number(entry.id) || 0;
+  return rowCount * 1000000 + idScore;
+}
+
+async function importAllHistoryBackup(file) {
+  await ensureHistoryLoaded();
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    const importedRaw = _historyToArrayFromImport(parsed);
+    if (!Array.isArray(importedRaw) || importedRaw.length === 0) {
+      showToast('导入文件无有效历史数据');
+      return;
+    }
+
+    const current = getHistory();
+    saveHistoryBackup(current, 'beforeImportMerge');
+
+    const mergedMap = new Map();
+    current.forEach(item => {
+      const n = _normalizeImportedHistoryEntry(item);
+      if (!n) return;
+      mergedMap.set(_historyEntryKey(n), n);
+    });
+
+    let importedValid = 0;
+    let replaced = 0;
+    importedRaw.forEach(item => {
+      const n = _normalizeImportedHistoryEntry(item);
+      if (!n) return;
+      importedValid += 1;
+      const key = _historyEntryKey(n);
+      const old = mergedMap.get(key);
+      if (!old) {
+        mergedMap.set(key, n);
+      } else if (_historyEntryScore(n) >= _historyEntryScore(old)) {
+        mergedMap.set(key, n);
+        replaced += 1;
+      }
+    });
+
+    if (importedValid === 0) {
+      showToast('导入失败：没有可用记录');
+      return;
+    }
+
+    const merged = Array.from(mergedMap.values()).sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+    const ok = await persistHistory(merged, { reason: 'importHistoryMerge' });
+    if (!ok) {
+      showToast('导入失败：浏览器存储空间不足');
+      return;
+    }
+    await loadHistoryList();
+    showToast(`导入完成：新增/更新 ${importedValid} 条，当前共 ${merged.length} 条`);
+  } catch (e) {
+    showToast('导入失败：文件格式不正确');
+  }
 }
 
 async function deleteAllHistory() {
