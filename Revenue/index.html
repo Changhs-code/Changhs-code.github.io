@@ -1,0 +1,2126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>收入管理 · Revenue Management</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --primary: #6c5ce7;
+    --primary-light: #a29bfe;
+    --primary-dark: #5a4bd1;
+    --accent: #fd79a8;
+    --bg: #f8f7ff;
+    --card: #ffffff;
+    --border: #e8e4f0;
+    --text: #2d3436;
+    --text-muted: #636e72;
+    --success: #00b894;
+    --warning: #fdcb6e;
+    --danger: #e17055;
+    --info: #74b9ff;
+    --shadow: 0 2px 12px rgba(108,92,231,0.10);
+    --shadow-hover: 0 6px 24px rgba(108,92,231,0.18);
+  }
+  body { font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  .topbar {
+    background: linear-gradient(135deg, var(--primary) 0%, #a29bfe 100%);
+    color: #fff; padding: 0 28px; height: 60px;
+    display: flex; align-items: center; justify-content: space-between;
+    box-shadow: 0 2px 12px rgba(108,92,231,0.25);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .topbar-title { display: flex; flex-direction: column; }
+  .topbar-title .zh { font-size: 17px; font-weight: 700; letter-spacing: 1px; line-height: 1.2; }
+  .topbar-title .en { font-size: 11px; opacity: 0.75; letter-spacing: 2px; font-weight: 400; }
+  .topbar-logo { font-size: 24px; margin-right: 12px; }
+  .topbar-left { display: flex; align-items: center; }
+  .topbar-actions { display: flex; gap: 10px; }
+  .btn-top {
+    background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.35);
+    color: #fff; padding: 6px 16px; border-radius: 20px; cursor: pointer;
+    font-size: 13px; transition: all .2s; display: flex; align-items: center; gap: 6px;
+  }
+  .btn-top:hover { background: rgba(255,255,255,0.30); }
+
+  .main { padding: 20px 24px; max-width: 1700px; margin: 0 auto; }
+
+  .tabs { display: flex; gap: 4px; margin-bottom: 20px; background: var(--card); padding: 5px; border-radius: 12px; box-shadow: var(--shadow); width: fit-content; }
+  .tab-btn { padding: 8px 22px; border: none; background: transparent; border-radius: 9px; cursor: pointer; font-size: 14px; font-weight: 500; color: var(--text-muted); transition: all .2s; }
+  .tab-btn.active { background: var(--primary); color: #fff; box-shadow: 0 2px 8px rgba(108,92,231,0.3); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .card { background: var(--card); border-radius: 14px; box-shadow: var(--shadow); padding: 20px; margin-bottom: 18px; }
+  .card-title { font-size: 15px; font-weight: 700; color: var(--primary-dark); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .card-title::before { content: ''; display: inline-block; width: 4px; height: 18px; background: var(--primary); border-radius: 2px; }
+
+  .stats-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 14px; margin-bottom: 18px; }
+  .stat-card { background: var(--card); border-radius: 12px; padding: 16px 18px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 4px; border-left: 4px solid var(--primary); transition: box-shadow .2s; }
+  .stat-card:nth-child(2) { border-left-color: var(--accent); }
+  .stat-card:nth-child(3) { border-left-color: var(--success); }
+  .stat-card:nth-child(4) { border-left-color: var(--warning); }
+  .stat-card:nth-child(5) { border-left-color: var(--info); }
+  .stat-card:hover { box-shadow: var(--shadow-hover); }
+  .stat-label { font-size: 12px; color: var(--text-muted); }
+  .stat-value { font-size: 22px; font-weight: 700; color: var(--text); }
+  .stat-sub { font-size: 11px; color: var(--text-muted); }
+
+  .filter-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; align-items: end; }
+  .filter-item { display: flex; flex-direction: column; gap: 5px; }
+  .filter-item label { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+  .filter-item input, .filter-item select { padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; background: #faf9ff; color: var(--text); outline: none; transition: border-color .2s; }
+  .filter-item input:focus, .filter-item select:focus { border-color: var(--primary); }
+
+  .btn { padding: 8px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all .2s; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-dark); box-shadow: 0 3px 10px rgba(108,92,231,0.3); }
+  .btn-outline { background: transparent; color: var(--primary); border: 1.5px solid var(--primary); }
+  .btn-outline:hover { background: var(--bg); }
+  .btn-success { background: var(--success); color: #fff; }
+  .btn-success:hover { background: #009e7e; }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-danger:hover { background: #c0392b; }
+  .btn-sm { padding: 4px 12px; font-size: 12px; border-radius: 6px; }
+  .btn-xs { padding: 3px 8px; font-size: 11px; border-radius: 5px; }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: linear-gradient(135deg, #f3f0ff 0%, #fdf0f6 100%); }
+  th { padding: 10px 10px; text-align: left; font-weight: 700; color: var(--primary-dark); white-space: nowrap; border-bottom: 2px solid var(--border); cursor: pointer; user-select: none; }
+  th .sort-icon { margin-left: 3px; opacity: 0.5; font-size: 10px; }
+  th.sort-asc .sort-icon::after { content: '↑'; }
+  th.sort-desc .sort-icon::after { content: '↓'; }
+  th:not(.sort-asc):not(.sort-desc) .sort-icon::after { content: '↕'; }
+  td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:hover td { background: #f8f6ff; }
+
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge-success { background: #d4f8ee; color: #00b894; }
+  .badge-warning { background: #fff5d7; color: #e67e22; }
+  .badge-info { background: #d7ecff; color: #2980b9; }
+  .badge-danger { background: #fce4df; color: #e17055; }
+  .badge-gray { background: #f0f0f0; color: #636e72; }
+  .badge-purple { background: #ede9ff; color: #6c5ce7; }
+
+  .pagination { display: flex; align-items: center; gap: 6px; justify-content: flex-end; margin-top: 14px; }
+  .page-btn { width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); cursor: pointer; font-size: 13px; color: var(--text-muted); display: flex; align-items: center; justify-content: center; transition: all .2s; }
+  .page-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .page-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .page-info { font-size: 12px; color: var(--text-muted); }
+
+  .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 18px; }
+  .chart-box { background: var(--card); border-radius: 14px; box-shadow: var(--shadow); padding: 18px; }
+  .chart-title { font-size: 14px; font-weight: 700; color: var(--primary-dark); margin-bottom: 12px; }
+  .echart { width: 100%; height: 280px; }
+
+  .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000; align-items: center; justify-content: center; }
+  .modal-bg.open { display: flex; }
+  .modal { background: var(--card); border-radius: 18px; padding: 28px; max-width: 740px; width: 96%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.2); animation: slideUp .25s ease; }
+  @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .modal-title { font-size: 17px; font-weight: 700; color: var(--primary-dark); }
+  .modal-close { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--text-muted); line-height: 1; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .detail-item { display: flex; flex-direction: column; gap: 4px; }
+  .detail-label { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+  .detail-value { font-size: 14px; color: var(--text); padding: 8px 12px; background: var(--bg); border-radius: 8px; word-break: break-all; }
+  .detail-full { grid-column: 1/-1; }
+  .img-gallery { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+  .img-thumb-wrap { position: relative; display: inline-block; }
+  .img-thumb { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; cursor: pointer; border: 2px solid var(--border); transition: border-color .2s; display: block; }
+  .img-thumb:hover { border-color: var(--primary); }
+  .img-del-btn { position: absolute; top: -5px; right: -5px; background: var(--danger); color: #fff; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; }
+  .img-upload-area { border: 2px dashed var(--border); border-radius: 10px; padding: 16px; text-align: center; cursor: pointer; transition: border-color .2s; color: var(--text-muted); font-size: 13px; margin-top: 10px; }
+  .img-upload-area:hover { border-color: var(--primary); color: var(--primary); }
+  .img-upload-area.dragover { border-color: var(--primary); color: var(--primary); background: #f8f6ff; }
+
+  .edit-form { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .edit-form .full { grid-column: 1/-1; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+  .form-group input, .form-group select, .form-group textarea { padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; color: var(--text); outline: none; background: #faf9ff; transition: border-color .2s; }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--primary); }
+  .form-group textarea { resize: vertical; min-height: 70px; }
+
+  .upload-zone { border: 2px dashed var(--primary-light); border-radius: 14px; padding: 36px 24px; text-align: center; cursor: pointer; background: #f8f6ff; transition: all .2s; }
+  .upload-zone:hover, .upload-zone.dragover { border-color: var(--primary); background: #f0edff; }
+  .upload-icon { font-size: 40px; margin-bottom: 12px; }
+  .upload-text { font-size: 15px; font-weight: 600; color: var(--primary); }
+  .upload-sub { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+  .import-review-wrap { margin-top: 16px; background: #f8f7ff; border: 1px solid #e5e2ff; border-radius: 10px; padding: 12px; }
+  .import-review-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  .import-review-meta { font-size: 12px; color: var(--text-muted); }
+  .import-review-table { max-height: 360px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+  .import-review-table table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .import-review-table th, .import-review-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
+  .import-review-table tr:last-child td { border-bottom: none; }
+  .import-review-warn { color: #b26a00; font-size: 12px; }
+  .import-review-bad { color: var(--danger); font-size: 12px; }
+
+  .empty-state { text-align: center; padding: 48px 24px; color: var(--text-muted); }
+  .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state p { font-size: 14px; }
+
+  #toast { position: fixed; bottom: 24px; right: 24px; z-index: 9999; background: var(--primary); color: #fff; padding: 12px 22px; border-radius: 10px; font-size: 13px; font-weight: 600; box-shadow: 0 4px 18px rgba(108,92,231,0.35); opacity: 0; pointer-events: none; transition: opacity .3s; max-width: 340px; }
+  #toast.show { opacity: 1; pointer-events: auto; }
+
+  #imgPreview { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 9998; align-items: center; justify-content: center; cursor: zoom-out; }
+  #imgPreview.open { display: flex; }
+  #imgPreview img { max-width: 90vw; max-height: 90vh; border-radius: 10px; }
+
+  .text-right { text-align: right; }
+  .amount { font-weight: 700; color: var(--primary-dark); }
+
+  /* 项目类型标签颜色 */
+  .proj-sm { background: #ede9ff; color: #6c5ce7; }
+  .proj-tech { background: #d7f5ee; color: #00916e; }
+  .proj-deposit { background: #fff3d7; color: #b36a00; }
+
+  /* 复选框组样式 */
+  /* 下拉多选框 */
+  .multi-select { position: relative; }
+  .multi-select-trigger { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: #faf9ff; cursor: pointer; font-size: 13px; min-height: 38px; gap: 8px; transition: border-color .2s; }
+  .multi-select-trigger:hover { border-color: var(--primary); }
+  .multi-select-trigger.open { border-color: var(--primary); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+  .multi-select-placeholder { color: var(--text-muted); }
+  .multi-select-tags { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; }
+  .multi-select-tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: var(--primary-light); color: #fff; border-radius: 4px; font-size: 12px; font-weight: 500; }
+  .multi-select-tag .remove { cursor: pointer; opacity: 0.8; }
+  .multi-select-tag .remove:hover { opacity: 1; }
+  .multi-select-arrow { font-size: 10px; color: var(--text-muted); transition: transform .2s; }
+  .multi-select-trigger.open .multi-select-arrow { transform: rotate(180deg); }
+  .multi-select-dropdown { display: none; position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid var(--primary); border-top: none; border-radius: 0 0 8px 8px; box-shadow: 0 4px 12px rgba(108,92,231,0.15); z-index: 100; max-height: 200px; overflow-y: auto; }
+  .multi-select-dropdown.open { display: block; }
+  .multi-select-option { display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; font-size: 13px; transition: background .15s; }
+  .multi-select-option:hover { background: #f0edff; }
+  .multi-select-option.selected { background: #ede9ff; color: var(--primary-dark); font-weight: 600; }
+  .multi-select-option input[type="checkbox"] { accent-color: var(--primary); width: 14px; height: 14px; }
+
+  @media (max-width: 768px) {
+    .filter-grid { grid-template-columns: 1fr 1fr; }
+    .charts-grid { grid-template-columns: 1fr; }
+    .detail-grid { grid-template-columns: 1fr; }
+    .edit-form { grid-template-columns: 1fr; }
+    .edit-form .full { grid-column: 1; }
+    .main { padding: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-logo">💹</span>
+    <div class="topbar-title">
+      <div class="zh">收入管理</div>
+      <div class="en">Revenue Management</div>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <button class="btn-top" onclick="openHelp()">📖 使用说明</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('query')">🔍 查询列表</button>
+    <button class="tab-btn" onclick="switchTab('charts')">📊 数据看板</button>
+    <button class="tab-btn" onclick="switchTab('upload')">📤 数据导入</button>
+  </div>
+
+  <!-- ===== 查询列表 ===== -->
+  <div class="tab-content active" id="tab-query">
+    <div class="stats-bar">
+      <div class="stat-card">
+        <div class="stat-label">总记录数 / Records</div>
+        <div class="stat-value" id="statTotal">0</div>
+        <div class="stat-sub">条数据</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">总收入金额</div>
+        <div class="stat-value" id="statOrder">¥0</div>
+        <div class="stat-sub">元</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">平台服务费</div>
+        <div class="stat-value" id="statActual">¥0</div>
+        <div class="stat-sub">服务费+手续费合计</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">服务市场</div>
+        <div class="stat-value" id="statSM">0</div>
+        <div class="stat-sub">条</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">技术服务</div>
+        <div class="stat-value" id="statTech">0</div>
+        <div class="stat-sub">条</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">保证金</div>
+        <div class="stat-value" id="statDeposit">0</div>
+        <div class="stat-sub">条</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">订单服务</div>
+        <div class="stat-value" id="statOrderService">0</div>
+        <div class="stat-sub">条</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">筛选条件 · Filter</div>
+      <div class="filter-grid">
+        <div class="filter-item">
+          <label>服务订单号（批量，逗号分隔）</label>
+          <input type="text" id="fOrderNo" placeholder="输入订单号...">
+        </div>
+        <div class="filter-item">
+          <label>详情 / 服务名称（模糊）</label>
+          <input type="text" id="fName" placeholder="模糊搜索...">
+        </div>
+        <div class="filter-item">
+          <label>归属企业 / 服务商</label>
+          <select id="fVendor"><option value="">全部</option></select>
+        </div>
+        <div class="filter-item">
+          <label>项目类型</label>
+          <div class="multi-select" id="fProject">
+            <div class="multi-select-trigger" onclick="toggleMultiSelect('fProject')">
+              <div class="multi-select-tags" id="fProjectTags"></div>
+              <span class="multi-select-placeholder" id="fProjectPlaceholder">全部</span>
+              <span class="multi-select-arrow">▼</span>
+            </div>
+            <div class="multi-select-dropdown" id="fProjectDropdown" onclick="event.stopPropagation()">
+              <label class="multi-select-option" data-value="服务市场"><input type="checkbox" value="服务市场" onchange="handleMultiCheckboxChange('fProject')">服务市场</label>
+              <label class="multi-select-option" data-value="技术服务"><input type="checkbox" value="技术服务" onchange="handleMultiCheckboxChange('fProject')">技术服务</label>
+              <label class="multi-select-option" data-value="保证金"><input type="checkbox" value="保证金" onchange="handleMultiCheckboxChange('fProject')">保证金</label>
+            </div>
+          </div>
+        </div>
+        <div class="filter-item">
+          <label>收入确认期间</label>
+          <div class="multi-select" id="fPeriod">
+            <div class="multi-select-trigger" onclick="toggleMultiSelect('fPeriod')">
+              <div class="multi-select-tags" id="fPeriodTags"></div>
+              <span class="multi-select-placeholder" id="fPeriodPlaceholder">全部</span>
+              <span class="multi-select-arrow">▼</span>
+            </div>
+            <div class="multi-select-dropdown" id="fPeriodDropdown" onclick="event.stopPropagation()"></div>
+          </div>
+        </div>
+        <div class="filter-item">
+          <label>订单状态</label>
+          <select id="fStatus">
+            <option value="">全部状态</option>
+            <option value="交易完成">交易完成</option>
+            <option value="商家服务中">商家服务中</option>
+          </select>
+        </div>
+
+        <div class="filter-item">
+          <label>下单时间范围</label>
+          <div style="display:flex;gap:6px">
+            <input type="date" id="fDateFrom" style="flex:1">
+            <input type="date" id="fDateTo" style="flex:1">
+          </div>
+        </div>
+        <div style="grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+          <button class="btn btn-primary" onclick="doSearch()">🔍 查询</button>
+          <button class="btn btn-outline" onclick="resetFilter()">↩️ 重置</button>
+          <div style="flex:1"></div>
+          <button class="btn btn-success btn-sm" onclick="exportExcel()">⬇️ 导出 Excel</button>
+          <button class="btn btn-outline btn-sm" onclick="exportCSV()">⬇️ 导出 CSV</button>
+          <button class="btn btn-primary btn-sm" onclick="openAddModal()">＋ 新增记录</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="justify-content:space-between">
+        <span>查询结果 · Results</span>
+        <span id="resultCount" style="font-size:12px;font-weight:400;color:var(--text-muted)"></span>
+      </div>
+      <div class="table-wrap">
+        <table id="resultTable">
+          <thead id="tableHead"></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="pagination"></div>
+    </div>
+  </div>
+
+  <!-- ===== 数据看板 ===== -->
+  <div class="tab-content" id="tab-charts">
+    <div class="charts-grid">
+      <div class="chart-box" style="grid-column:1/-1">
+        <div class="chart-title">📈 月度收入金额趋势</div>
+        <div class="echart" id="chartTrend"></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">🥧 各项目类型收入占比</div>
+        <div class="echart" id="chartPie"></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">🏆 Top 10 服务商（服务市场）</div>
+        <div class="echart" id="chartTop10"></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">🏆 Top 10 服务商（订单服务）</div>
+        <div class="echart" id="chartTop10DS"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 数据导入 ===== -->
+  <div class="tab-content" id="tab-upload">
+    <div class="card">
+      <div class="card-title">上传 Excel 数据 · Import</div>
+      <div class="upload-zone" id="uploadZone"
+        onclick="document.getElementById('excelFile').click()"
+        ondragover="handleDragOver(event)"
+        ondragleave="handleDragLeave(event)"
+        ondrop="handleDrop(event)">
+        <div class="upload-icon">📊</div>
+        <div class="upload-text">点击或拖拽上传 Excel 文件</div>
+        <div class="upload-sub">
+          支持 .xlsx / .xls 格式，支持公式单元格（自动读取计算结果），支持任意表头位置<br>
+          <b>新增规则</b>：表格中不存在的服务订单号 → 自动新增<br>
+          <b>更新规则</b>：已存在的服务订单号 → 变化字段自动覆盖，无变化字段保持不变，空白字段补充填入<br>
+          ⚠️ Excel 内嵌图片无法读取，收款凭证请在记录详情中上传
+        </div>
+      </div>
+      <input type="file" id="excelFile" style="display:none" accept=".xlsx,.xls" onchange="handleExcelUpload(this)">
+      <div id="importReview" class="import-review-wrap" style="display:none">
+        <div class="import-review-head">
+          <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px">
+            <input type="checkbox" id="importSelectAll" onchange="toggleImportSelectAll(this.checked)">
+            全选
+          </label>
+          <span class="import-review-meta" id="importReviewMeta">待导入 0 条</span>
+          <div style="flex:1"></div>
+          <button class="btn btn-primary btn-sm" onclick="importSelectedRows()">✅ 导入已选</button>
+          <button class="btn btn-outline btn-sm" onclick="clearImportPreview()">清空预览</button>
+        </div>
+        <div class="import-review-table">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:56px">选择</th>
+                <th style="width:120px">工作表</th>
+                <th style="width:80px">行号</th>
+                <th style="width:160px">服务订单号</th>
+                <th>详情</th>
+                <th style="width:120px">收入金额</th>
+                <th style="width:200px">状态</th>
+              </tr>
+            </thead>
+            <tbody id="importReviewBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="uploadLog" style="margin-top:16px;display:none">
+        <div class="card-title" style="margin-top:10px">导入日志</div>
+        <div id="uploadLogContent" style="font-size:13px;background:#f8f7ff;padding:14px;border-radius:10px;line-height:2.2"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">数据管理 · Data Management</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-danger btn-sm" onclick="clearAllData()">🗑️ 清空所有数据</button>
+        <button class="btn btn-outline btn-sm" onclick="exportBackup()">⬇️ 导出备份（JSON）</button>
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('importBackupFile2').click()">⬆️ 从备份导入</button>
+        <input type="file" id="importBackupFile2" style="display:none" accept=".json" onchange="importBackup(this)">
+      </div>
+      <div style="margin-top:14px;font-size:13px;color:var(--text-muted)">
+        当前数据库共 <strong id="dbCount">0</strong> 条记录，最后更新：<strong id="dbLastUpdate">-</strong>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 详情/编辑弹窗 -->
+<div class="modal-bg" id="detailModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">记录详情</div>
+      <button class="modal-close" onclick="closeModal('detailModal')">×</button>
+    </div>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<!-- 图片全屏预览 -->
+<div id="imgPreview" onclick="this.classList.remove('open')">
+  <img id="imgPreviewImg" src="">
+</div>
+
+<!-- 使用说明弹窗 -->
+<div class="modal-bg" id="helpModal">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-header">
+      <div class="modal-title">📖 使用说明</div>
+      <button class="modal-close" onclick="closeModal('helpModal')">×</button>
+    </div>
+    <div id="helpContent" style="font-size:13px;line-height:1.8;color:var(--text)"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ===================== Supabase 配置 =====================
+const SUPABASE_URL = 'https://uuymcvyuxinzgattyexn.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1eW1jdnl1eGluemdhdHR5ZXhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczNTYzODksImV4cCI6MjA5MjkzMjM4OX0.DP2UGmvGC3XKGtQXKem84UmkhTX1z6cjZ0a3SXcaS8M';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ===================== Supabase 数据层 =====================
+const SB = {
+  // 获取所有记录
+  async getAll() {
+    const { data, error } = await supabase
+      .from('records')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
+  // 新增单条
+  async add(record) {
+    const { data, error } = await supabase
+      .from('records')
+      .insert([record])
+      .select()
+      .single();
+    if (error) throw error;
+    return { action: 'added', data };
+  },
+  // 更新单条（按 id）
+  async update(id, record) {
+    const { data, error } = await supabase
+      .from('records')
+      .update(record)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return { action: 'updated', data };
+  },
+  // 删除单条
+  async delete(id) {
+    const { error } = await supabase
+      .from('records')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+  },
+  // Upsert（复制 IndexedDB 去重逻辑）
+  async upsert(record) {
+    const proj = record['项目'];
+    const orderId = record['服务订单号'];
+
+    if (proj === '服务市场' && orderId) {
+      // 服务市场：用服务订单号去重
+      const { data: existing } = await supabase
+        .from('records')
+        .select('*')
+        .eq('服务订单号', orderId)
+        .single();
+      if (existing) {
+        // 合并更新
+        const merged = Object.assign({}, existing);
+        for (const k of Object.keys(record)) {
+          const newVal = record[k];
+          if (newVal !== null && newVal !== undefined && newVal !== '') merged[k] = newVal;
+        }
+        merged._updatedAt = new Date().toISOString();
+        await supabase.from('records').update(merged).eq('id', existing.id);
+        return { action: 'updated' };
+      } else {
+        await supabase.from('records').insert([record]);
+        return { action: 'added' };
+      }
+    } else if (proj === '技术服务' || proj === '保证金') {
+      // 技术服务/保证金：用组合字段去重
+      const techKey = [
+        record['收入确认期间'], record['详情'],
+        record['归属服务商企业'], record['客户'],
+        record['收入金额']
+      ].join('||');
+      const { data: existing } = await supabase
+        .from('records')
+        .select('*')
+        .eq('_techKey', techKey)
+        .single();
+      const base = existing || {};
+      const sameData = ['收入确认期间','项目','详情','归属服务商企业','客户','收入金额','实收金额','服务费','交易手续费','支出费用','到账情况','订单状态','下单时间','备注'];
+      const merged = Object.assign({}, base);
+      for (const k of sameData) {
+        if (record[k] !== null && record[k] !== undefined && record[k] !== '') merged[k] = record[k];
+      }
+      merged._updatedAt = new Date().toISOString();
+      merged._techKey = techKey;
+      if (existing) {
+        await supabase.from('records').update(merged).eq('id', existing.id);
+        return { action: 'skipped' };
+      } else {
+        await supabase.from('records').insert([merged]);
+        return { action: 'added' };
+      }
+    } else {
+      // 其他类型：直接插入
+      await supabase.from('records').insert([record]);
+      return { action: 'added' };
+    }
+  },
+  // 清空所有记录
+  async clear() {
+    const { error } = await supabase.from('records').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    if (error) throw error;
+  }
+};
+
+// ===================== 字段定义 =====================
+// 服务市场字段（展示列）
+const SM_FIELDS = [
+  { key: '收入确认期间', label: '期间',         sort: true },
+  { key: '项目',         label: '项目',         sort: true },
+  { key: '详情',         label: '详情',         sort: false, wide: true },
+  { key: '归属服务商企业', label: '归属企业',     sort: false },
+  { key: '客户',         label: '客户',         sort: false },
+  { key: '服务订单号',   label: '服务订单号',   sort: true,  mono: true },
+  { key: '收入金额',     label: '金额',         sort: true,  amt: true },
+  { key: '服务费',       label: '服务费',       sort: false, amt: true },
+  { key: '交易手续费',   label: '手续费',       sort: false, amt: true },
+  { key: '订单状态',     label: '订单状态',     sort: true },
+];
+
+// 技术服务 / 保证金 共用字段（展示列）
+const TECH_FIELDS = [
+  { key: '收入确认期间', label: '期间',   sort: true },
+  { key: '项目',         label: '项目',   sort: true },
+  { key: '详情',         label: '详情',   sort: false, wide: true },
+  { key: '归属服务商企业', label: '归属企业', sort: false },
+  { key: '客户',         label: '客户',   sort: false },
+  { key: '收入金额',      label: '金额',  sort: true,  amt: true },
+];
+
+// 共享字段的项目类型（技术服务 + 保证金，无服务订单号等宽字段）
+const TECH_LIKE = ['技术服务', '保证金'];
+
+// 所有可存储字段（两类合并）
+const ALL_STORE_FIELDS = [
+  '收入确认期间','项目','详情','归属服务商企业','客户',
+  '服务订单号','收入金额','实收金额','服务费','交易手续费','支出费用',
+  '到账情况','订单状态','下单时间','备注'
+];
+
+// 表头自动识别映射（候选列名 → 标准字段）
+const HEADER_MAP = {
+  '收入确认期间': ['收入确认期间','期间','确认期间','revenue period'],
+  '项目':         ['项目','project','type','类型'],
+  '详情':             ['详情','服务详情','服务名称','description','detail','服务内容'],
+  '归属服务商企业':   ['归属服务商企业','归属企业','服务商','归属公司','vendor','company','归属'],
+  '客户':             ['客户','客户名称','client','customer'],
+  '服务订单号':       ['服务订单号','订单号','order no','order number','单号','订单编号'],
+  '收入金额':         ['收入金额','金额','amount','order amount','应收总额'],
+  '实收金额':         ['实收金额','实收','received','actual amount'],
+  '服务费':           ['服务费','service fee'],
+  '交易手续费':       ['交易手续费','手续费','fee','commission'],
+  '支出费用':         ['支出费用','对应费用','费用','cost'],
+  '到账情况':         ['到账情况','到账','payment','payment status'],
+  '订单状态':         ['订单状态','状态','status','order status'],
+  '下单时间':         ['下单时间','时间','date','order date','下单日期'],
+  '备注':             ['备注','remark','note'],
+};
+
+// 明确忽略的金额列（系统不采集这些字段）
+const IGNORED_AMOUNT_HEADER_KEYWORDS = ['策云通账套收入', '网络账套收入', '账套收入'];
+
+// ===================== 全局状态 =====================
+let allData = [];
+let filteredData = [];
+let sortCol = '下单时间';
+let sortDir = 'desc';
+let currentPage = 1;
+const PAGE_SIZE = 20;
+let pendingImportRows = [];
+let pendingImportFileName = '';
+let pendingImportLogLines = [];
+
+// ===================== IndexedDB =====================
+const IDB = {
+  db: null,
+  async open() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open('RevMgtDB_v1', 3);
+      req.onupgradeneeded = e => {
+        const db = e.target.result;
+        let store;
+        if (!db.objectStoreNames.contains('records')) {
+          store = db.createObjectStore('records', { keyPath: 'id', autoIncrement: true });
+        } else {
+          store = e.target.transaction.objectStore('records');
+        }
+        // 兼容旧版本库：补齐缺失索引，避免 index() 抛 NotFoundError
+        if (!store.indexNames.contains('服务订单号')) {
+          store.createIndex('服务订单号', '服务订单号', { unique: true });
+        }
+        if (!store.indexNames.contains('技术Key')) {
+          store.createIndex('技术Key', '_techKey', { unique: false });
+        }
+        if (!db.objectStoreNames.contains('images')) db.createObjectStore('images', { keyPath: 'orderId' });
+        if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta', { keyPath: 'key' });
+      };
+      req.onsuccess = e => { this.db = e.target.result; resolve(); };
+      req.onerror = e => reject(e);
+    });
+  },
+  async getAll() {
+    return new Promise((res, rej) => {
+      const req = this.db.transaction('records','readonly').objectStore('records').getAll();
+      req.onsuccess = e => res(e.target.result);
+      req.onerror = rej;
+    });
+  },
+  async upsert(record) {
+    return new Promise((res, rej) => {
+      const tx = this.db.transaction('records', 'readwrite');
+      const store = tx.objectStore('records');
+      const orderId = record['服务订单号'];
+
+      // 服务市场有服务订单号 → 用服务订单号去重
+      if (orderId) {
+        const getReq = store.index('服务订单号').get(orderId);
+        getReq.onerror = () => rej(new Error('查询失败'));
+        getReq.onsuccess = e => {
+          const existing = e.target.result;
+          if (existing) {
+            const merged = Object.assign({}, existing);
+            for (const k of Object.keys(record)) {
+              if (k === 'id') continue;
+              const newVal = record[k];
+              if (newVal !== null && newVal !== undefined && newVal !== '') {
+                merged[k] = newVal;
+              } else if (merged[k] === null || merged[k] === undefined || merged[k] === '') {
+                merged[k] = newVal;
+              }
+            }
+            merged._updatedAt = new Date().toISOString();
+            store.put(merged).onsuccess = () => res({ action: 'updated', id: existing.id });
+          } else {
+            record._updatedAt = new Date().toISOString();
+            const addReq2 = store.add(record);
+            addReq2.onsuccess = e2 => res({ action: 'added', id: e2.target.result });
+            addReq2.onerror = () => rej(new Error('新增失败，服务订单号可能重复'));
+          }
+        };
+        return;
+      }
+
+      // 技术服务/保证金 → 用多字段组合唯一键去重
+      const techKey = [
+        record['收入确认期间'], record['项目'], record['详情'],
+        record['归属服务商企业'], record['客户'], record['收入金额']
+      ].join('|||');
+      record._techKey = techKey;
+
+      const getReq2 = store.index('技术Key').get(techKey);
+      getReq2.onerror = () => rej(new Error('查询失败'));
+      getReq2.onsuccess = e => {
+        const existing = e.target.result;
+        if (existing) {
+          // 关键字段完全一致 → 跳过
+          const sameData = ['收入确认期间','项目','详情','归属服务商企业','客户','收入金额','实收金额','服务费','交易手续费','支出费用','到账情况','订单状态','下单时间','备注']
+            .every(k => String(existing[k] || '') === String(record[k] || ''));
+          if (sameData) { res({ action: 'skipped', id: existing.id }); return; }
+          // 有变化 → 更新
+          const merged = Object.assign({}, existing);
+          for (const k of Object.keys(record)) {
+            if (k === 'id') continue;
+            const newVal = record[k];
+            if (newVal !== null && newVal !== undefined && newVal !== '') {
+              merged[k] = newVal;
+            } else if (merged[k] === null || merged[k] === undefined || merged[k] === '') {
+              merged[k] = newVal;
+            }
+          }
+          merged._updatedAt = new Date().toISOString();
+          store.put(merged).onsuccess = () => res({ action: 'updated', id: existing.id });
+        } else {
+          record._updatedAt = new Date().toISOString();
+          const addReq = store.add(record);
+          addReq.onsuccess = e => res({ action: 'added', id: e.target.result });
+          addReq.onerror = () => rej(new Error('新增失败'));
+        }
+      };
+    });
+  },
+  async put(record) {
+    return new Promise((res, rej) => {
+      this.db.transaction('records','readwrite').objectStore('records').put(record)
+        .onsuccess = e => res(e.target.result);
+    });
+  },
+  async delete(id) {
+    return new Promise((res, rej) => {
+      this.db.transaction('records','readwrite').objectStore('records').delete(id)
+        .onsuccess = () => res();
+    });
+  },
+  async clear() {
+    return new Promise((res, rej) => {
+      this.db.transaction('records','readwrite').objectStore('records').clear()
+        .onsuccess = () => res();
+    });
+  },
+  async clearStore(storeName) {
+    return new Promise((res, rej) => {
+      const req = this.db.transaction(storeName, 'readwrite').objectStore(storeName).clear();
+      req.onsuccess = () => res();
+      req.onerror = rej;
+    });
+  },
+  async clearAllStores() {
+    await this.clearStore('records');
+    await this.clearStore('images');
+    await this.clearStore('meta');
+  },
+  async getImages(key) {
+    return new Promise(res => {
+      const req = this.db.transaction('images','readonly').objectStore('images').get(key);
+      req.onsuccess = e => res(e.target.result ? e.target.result.images : []);
+    });
+  },
+  async putImages(key, images) {
+    return new Promise(res => {
+      this.db.transaction('images','readwrite').objectStore('images').put({ orderId: key, images })
+        .onsuccess = () => res();
+    });
+  },
+  async getAllImages() {
+    return new Promise(res => {
+      this.db.transaction('images','readonly').objectStore('images').getAll()
+        .onsuccess = e => res(e.target.result);
+    });
+  },
+  async getAllMeta() {
+    return new Promise(res => {
+      this.db.transaction('meta','readonly').objectStore('meta').getAll()
+        .onsuccess = e => res(e.target.result);
+    });
+  }
+};
+
+// ===================== 初始化 =====================
+async function init() {
+  try {
+    allData = await SB.getAll();
+  } catch(e) {
+    console.warn('Supabase 加载失败，降级到本地 IndexedDB', e);
+    await IDB.open();
+    allData = await IDB.getAll();
+  }
+  buildFilterOptions();
+  doSearch();
+  updateDBInfo();
+  // 点击外部关闭下拉
+  window.addEventListener('click', function(e) {
+    if (e.target.closest('.multi-select')) return;
+    document.querySelectorAll('.multi-select-dropdown.open').forEach(d => {
+      d.classList.remove('open');
+      d.previousElementSibling.classList.remove('open');
+    });
+  });
+}
+
+// ===================== 下拉多选框 =====================
+function toggleMultiSelect(id) {
+  const trigger = document.querySelector(`#${id} .multi-select-trigger`);
+  const dropdown = document.getElementById(`${id}Dropdown`);
+  const isOpen = dropdown.classList.contains('open');
+  
+  // 关闭所有下拉
+  document.querySelectorAll('.multi-select-dropdown').forEach(d => d.classList.remove('open'));
+  document.querySelectorAll('.multi-select-trigger').forEach(t => t.classList.remove('open'));
+  
+  // 切换当前下拉
+  if (!isOpen) {
+    dropdown.classList.add('open');
+    trigger.classList.add('open');
+  }
+}
+
+function updateMultiSelect(id) {
+  const dropdown = document.getElementById(`${id}Dropdown`);
+  const tagsContainer = document.getElementById(`${id}Tags`);
+  const placeholder = document.getElementById(`${id}Placeholder`);
+  const checked = dropdown.querySelectorAll('input[type="checkbox"]:checked');
+  const values = Array.from(checked).map(cb => cb.value);
+  
+  // 更新选中标签显示
+  if (values.length > 0) {
+    tagsContainer.innerHTML = values.map(v => `<span class="multi-select-tag">${escHtml(v)}<span class="remove" onclick="removeMultiSelect('${id}','${escHtml(v)}')">×</span></span>`).join('');
+    placeholder.style.display = 'none';
+    dropdown.querySelectorAll('.multi-select-option').forEach(opt => {
+      opt.classList.toggle('selected', values.includes(opt.dataset.value));
+    });
+  } else {
+    tagsContainer.innerHTML = '';
+    placeholder.style.display = '';
+    dropdown.querySelectorAll('.multi-select-option').forEach(opt => opt.classList.remove('selected'));
+  }
+}
+
+function handleMultiCheckboxChange(id) {
+  updateMultiSelect(id);
+}
+
+function removeMultiSelect(id, value) {
+  const dropdown = document.getElementById(`${id}Dropdown`);
+  const cb = dropdown.querySelector(`input[type="checkbox"][value="${value}"]`);
+  if (cb) cb.checked = false;
+  updateMultiSelect(id);
+}
+
+function getMultiSelectValues(id) {
+  const dropdown = document.getElementById(`${id}Dropdown`);
+  const cb = dropdown.querySelector(`input[type="checkbox"][value="${value}"]`);
+  if (cb) cb.checked = false;
+  updateMultiSelect(id);
+}
+
+function getMultiSelectValues(id) {
+  const dropdown = document.getElementById(`${id}Dropdown`);
+  return Array.from(dropdown.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+}
+
+function resetMultiSelect(id) {
+  const dropdown = document.getElementById(`${id}Dropdown`);
+  dropdown.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+  updateMultiSelect(id);
+}
+
+function resetFilter() {
+  ['fOrderNo','fName','fDateFrom','fDateTo'].forEach(id => document.getElementById(id).value = '');
+  ['fVendor','fStatus'].forEach(id => document.getElementById(id).value = '');
+  // 重置下拉多选
+  resetMultiSelect('fProject');
+  resetMultiSelect('fPeriod');
+  doSearch();
+}
+
+function updateDBInfo() {
+  document.getElementById('dbCount').textContent = allData.length;
+  const last = allData.reduce((m, r) => {
+    const d = r._updatedAt || r['下单时间'] || '';
+    return String(d) > m ? String(d) : m;
+  }, '');
+  document.getElementById('dbLastUpdate').textContent = last ? last.substring(0,19) : '-';
+}
+
+// ===================== 筛选选项 =====================
+function normalizePeriod(p) {
+  if (!p) return null;
+  const trimmed = String(p).trim();
+  if (/^\d+$/.test(trimmed)) return trimmed;
+  const num = parseFloat(trimmed);
+  if (!isNaN(num)) return String(Math.round(num));
+  return trimmed;
+}
+
+function buildFilterOptions() {
+  const vendors = [...new Set(allData.map(r => r['归属服务商企业']).filter(Boolean))].sort();
+  // 对收入确认期间进行标准化去重
+  const rawPeriods = allData.map(r => normalizePeriod(r['收入确认期间'])).filter(v => v != null && v !== '');
+  const periods = [...new Set(rawPeriods)].sort((a,b) => String(b).localeCompare(String(a)));
+  document.getElementById('fVendor').innerHTML = '<option value="">全部</option>' + vendors.map(v => `<option value="${escHtml(v)}">${escHtml(v)}</option>`).join('');
+  // 动态生成收入确认期间下拉选项
+  const periodDropdown = document.getElementById('fPeriodDropdown');
+  periodDropdown.innerHTML = periods.map(v => `<label class="multi-select-option" data-value="${escHtml(v)}"><input type="checkbox" value="${escHtml(v)}" onchange="handleMultiCheckboxChange('fPeriod')">${escHtml(v)}</label>`).join('');
+  updateMultiSelect('fProject');
+  updateMultiSelect('fPeriod');
+}
+
+// ===================== 查询 =====================
+function doSearch() {
+  const orderNo = document.getElementById('fOrderNo').value.trim();
+  const name = document.getElementById('fName').value.trim().toLowerCase();
+  const vendor = document.getElementById('fVendor').value;
+  // 获取项目类型下拉多选的选中值
+  const projectChecked = getMultiSelectValues('fProject');
+  // 获取收入确认期间下拉多选的选中值
+  const periodChecked = getMultiSelectValues('fPeriod');
+  const status = document.getElementById('fStatus').value;
+
+  const dateFrom = document.getElementById('fDateFrom').value;
+  const dateTo = document.getElementById('fDateTo').value;
+  const orderNos = orderNo ? orderNo.split(/[,，\s]+/).map(s => s.trim()).filter(Boolean) : [];
+
+  filteredData = allData.filter(r => {
+    if (orderNos.length && !orderNos.some(no => (r['服务订单号'] || '').includes(no))) return false;
+    if (name && !(r['详情'] || '').toLowerCase().includes(name) && !(r['服务订单号'] || '').toLowerCase().includes(name)) return false;
+    if (vendor && r['归属服务商企业'] !== vendor) return false;
+    if (projectChecked.length && !projectChecked.includes(r['项目'])) return false;
+    if (periodChecked.length && !periodChecked.includes(String(r['收入确认期间']))) return false;
+    if (status && r['订单状态'] !== status) return false;
+
+    const dt = r['下单时间'] ? String(r['下单时间']) : '';
+    if (dateFrom && dt && dt < dateFrom) return false;
+    if (dateTo && dt && dt > dateTo + 'T23:59:59') return false;
+    return true;
+  });
+
+  filteredData.sort((a, b) => {
+    let va = a[sortCol], vb = b[sortCol];
+    if (va == null) va = ''; if (vb == null) vb = '';
+    if (!isNaN(parseFloat(va)) && !isNaN(parseFloat(vb))) { va = parseFloat(va); vb = parseFloat(vb); }
+    else { va = String(va); vb = String(vb); }
+    return sortDir === 'asc' ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+  });
+
+  currentPage = 1;
+  renderTableHead();
+  renderTable();
+  updateStats();
+}
+
+function resetFilter() {
+  ['fOrderNo','fName','fDateFrom','fDateTo'].forEach(id => document.getElementById(id).value = '');
+  ['fVendor','fStatus'].forEach(id => document.getElementById(id).value = '');
+  // 重置项目类型复选框组
+  document.querySelectorAll('#fProject label').forEach(l => l.classList.remove('checked'));
+  document.querySelectorAll('#fProject input[type="checkbox"]').forEach(cb => cb.checked = false);
+  // 重置收入确认期间复选框组
+  document.querySelectorAll('#fPeriod label').forEach(l => l.classList.remove('checked'));
+  document.querySelectorAll('#fPeriod input[type="checkbox"]').forEach(cb => cb.checked = false);
+  doSearch();
+}
+
+// ===================== 排序 =====================
+function sortBy(col) {
+  sortDir = sortCol === col ? (sortDir === 'asc' ? 'desc' : 'asc') : 'asc';
+  sortCol = col;
+  document.querySelectorAll('th[data-col]').forEach(th => {
+    th.classList.remove('sort-asc','sort-desc');
+    if (th.dataset.col === col) th.classList.add(sortDir === 'asc' ? 'sort-asc' : 'sort-desc');
+  });
+  doSearch();
+}
+
+// ===================== 统计 =====================
+function updateStats() {
+  const total = filteredData.length;
+  const order = filteredData.filter(r => r['项目'] !== '保证金').reduce((s,r) => s + (parseFloat(r['收入金额']) || 0), 0);
+  const actual = filteredData.reduce((s,r) => s + (parseFloat(r['服务费']) || 0) + (parseFloat(r['交易手续费']) || 0), 0);
+  const smCount = filteredData.filter(r => r['项目'] === '服务市场').length;
+  const techCount = filteredData.filter(r => r['项目'] === '技术服务').length;
+  const depositCount = filteredData.filter(r => r['项目'] === '保证金').length;
+  const orderServiceCount = filteredData.filter(r => r['项目'] === '订单服务').length;
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statOrder').textContent = '¥' + fmtNum(order);
+  document.getElementById('statActual').textContent = '¥' + fmtNum(actual);
+  document.getElementById('statSM').textContent = smCount;
+  document.getElementById('statTech').textContent = techCount;
+  document.getElementById('statDeposit').textContent = depositCount;
+  document.getElementById('statOrderService').textContent = orderServiceCount;
+  document.getElementById('resultCount').textContent = `共 ${total} 条记录`;
+}
+
+function getIncomeAmount(record) {
+  return record ? record['收入金额'] : null;
+}
+
+function getReceivedAmount(record) {
+  return record ? record['实收金额'] : null;
+}
+
+function getSMAmountMismatch(record) {
+  if (!record || record['项目'] !== '服务市场') return null;
+  const income = parseFloat(record['收入金额']);
+  const received = parseFloat(record['实收金额']);
+  const serviceFee = parseFloat(record['服务费']);
+  const txnFee = parseFloat(record['交易手续费']);
+  if ([income, received, serviceFee, txnFee].some(v => isNaN(v))) return null;
+  const sum = received + serviceFee + txnFee;
+  const diff = Math.abs(sum - income);
+  if (diff <= 0.01) return null;
+  return { income, received, serviceFee, txnFee, sum, diff };
+}
+
+// ===================== 动态表头 =====================
+function renderTableHead() {
+  // 判断当前筛选是否全为技术服务
+  const onlyTechLike = filteredData.length > 0 && filteredData.every(r => TECH_LIKE.includes(r['项目']));
+  const fields = onlyTechLike ? TECH_FIELDS : SM_FIELDS;
+  const head = document.getElementById('tableHead');
+  head.innerHTML = '<tr>' + fields.map(f =>
+    `<th data-col="${f.key}" ${f.sort ? `onclick="sortBy('${f.key}')"` : ''}>
+      ${f.label}${f.sort ? '<span class="sort-icon"></span>' : ''}
+    </th>`
+  ).join('') + '<th>操作</th></tr>';
+  // 恢复排序标识
+  document.querySelectorAll('th[data-col]').forEach(th => {
+    if (th.dataset.col === sortCol) th.classList.add(sortDir === 'asc' ? 'sort-asc' : 'sort-desc');
+  });
+  return fields;
+}
+
+// ===================== 渲染表格 =====================
+async function renderTable() {
+  const onlyTechLike = filteredData.length > 0 && filteredData.every(r => TECH_LIKE.includes(r['项目']));
+  const fields = onlyTechLike ? TECH_FIELDS : SM_FIELDS;
+
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const pageData = filteredData.slice(start, start + PAGE_SIZE);
+  const tbody = document.getElementById('tableBody');
+
+  if (pageData.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="${fields.length + 1}" class="empty-state"><div class="empty-icon">📭</div><p>暂无数据，请上传 Excel 或新增记录</p></td></tr>`;
+    renderPagination(); return;
+  }
+
+  tbody.innerHTML = pageData.map(r => {
+    const projClass = r['项目'] === '技术服务' ? 'proj-tech' : r['项目'] === '保证金' ? 'proj-deposit' : 'proj-sm';
+    const statusBadge = r['订单状态'] === '交易完成' ? 'badge-success' : r['订单状态'] === '商家服务中' ? 'badge-warning' : 'badge-gray';
+
+    const cols = fields.map(f => {
+      if (f.key === '项目') return `<td><span class="badge ${projClass}">${r[f.key] || '-'}</span></td>`;
+      if (f.key === '订单状态') return `<td><span class="badge ${statusBadge}">${r[f.key] || '-'}</span></td>`;
+      if (f.amt) {
+        const amtVal = f.key === '收入金额' ? getIncomeAmount(r) : r[f.key];
+        return `<td class="text-right amount">${fmtAmt(amtVal)}</td>`;
+      }
+      if (f.mono) return `<td style="font-size:11px;color:var(--text-muted);white-space:nowrap">${escHtml(r[f.key] || '-')}</td>`;
+      if (f.wide) return `<td style="max-width:180px;white-space:normal;line-height:1.5;font-size:12px">${escHtml(r[f.key] || '-')}</td>`;
+      return `<td style="white-space:nowrap">${escHtml(r[f.key] || '-')}</td>`;
+    }).join('');
+
+    return `<tr>
+      ${cols}
+      <td>
+        <div style="display:flex;gap:4px">
+          <button class="btn btn-outline btn-xs" onclick="viewDetail(${r.id})">详情</button>
+          <button class="btn btn-primary btn-xs" onclick="editRecord(${r.id})">编辑</button>
+          <button class="btn btn-danger btn-xs" onclick="deleteRecord(${r.id})">删除</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  renderPagination();
+}
+
+// ===================== 分页 =====================
+function renderPagination() {
+  const total = filteredData.length, pages = Math.ceil(total / PAGE_SIZE);
+  const pg = document.getElementById('pagination');
+  if (pages <= 1) { pg.innerHTML = ''; return; }
+  let html = `<span class="page-info">共${total}条/${currentPage}/${pages}页</span>`;
+  html += `<button class="page-btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>‹</button>`;
+  const s = Math.max(1, currentPage-2), e = Math.min(pages, currentPage+2);
+  if (s > 1) html += `<button class="page-btn" onclick="goPage(1)">1</button>${s>2?'<span style="padding:0 4px">…</span>':''}`;
+  for (let i=s;i<=e;i++) html += `<button class="page-btn ${i===currentPage?'active':''}" onclick="goPage(${i})">${i}</button>`;
+  if (e < pages) html += `${e<pages-1?'<span style="padding:0 4px">…</span>':''}<button class="page-btn" onclick="goPage(${pages})">${pages}</button>`;
+  html += `<button class="page-btn" onclick="goPage(${currentPage+1})" ${currentPage===pages?'disabled':''}>›</button>`;
+  pg.innerHTML = html;
+}
+function goPage(p) {
+  const pages = Math.ceil(filteredData.length / PAGE_SIZE);
+  if (p < 1 || p > pages) return;
+  currentPage = p;
+  renderTable();
+}
+
+// ===================== 详情弹窗 =====================
+async function viewDetail(id) {
+  const r = allData.find(x => x.id === id);
+  if (!r) return;
+  // 优先用显式_imgKey（备份恢复后稳定），其次服务订单号，最后兜底id_
+  const key = r['_imgKey'] || r['服务订单号'] || ('id_' + r.id);
+  const images = await IDB.getImages(key);
+  const isTech = r['项目'] === '技术服务';
+  const mismatch = getSMAmountMismatch(r);
+
+  document.getElementById('modalTitle').textContent = `📋 ${r['详情'] ? r['详情'].substring(0,30) : '记录详情'}`;
+
+  const showFields = isTech
+    ? ['收入确认期间','项目','详情','归属服务商企业','客户','收入金额','实收金额','到账情况','备注']
+    : ['收入确认期间','项目','服务订单号','订单状态','归属服务商企业','客户','收入金额','实收金额','服务费','交易手续费','支出费用','到账情况','下单时间','备注'];
+
+  let html = '<div class="detail-grid">';
+  showFields.forEach(k => {
+    let v = r[k];
+    if (k === '收入金额') v = getIncomeAmount(r);
+    if (k === '实收金额') v = getReceivedAmount(r);
+    const isAmt = ['收入金额','实收金额','服务费','交易手续费','支出费用'].includes(k);
+    const full = (k === '详情' || k === '备注') ? ' detail-full' : '';
+    html += `<div class="detail-item${full}">
+      <div class="detail-label">${k}</div>
+      <div class="detail-value" style="${(k==='详情'||k==='备注')?'white-space:pre-wrap':''}">${isAmt ? fmtAmt(v) : escHtml(v != null ? String(v) : '-')}</div>
+    </div>`;
+  });
+  html += '</div>';
+
+  // 收款凭证（仅服务市场）
+  if (!isTech) {
+    html += `<div style="margin-top:18px">
+      <div style="font-size:14px;font-weight:700;color:var(--primary-dark);margin-bottom:8px">📸 收款凭证</div>
+      <div class="img-gallery" id="detailGallery_${id}">
+        ${images.map((img, idx) => {
+          const isImg = String(img.data || img).startsWith('data:image');
+          if (isImg) return `<div class="img-thumb-wrap">
+            <img class="img-thumb" src="${img.data || img}" onclick="previewImg(this.src)">
+            <button class="img-del-btn" onclick="delFile(${id}, '${key}', ${idx})" title="删除">×</button>
+          </div>`;
+          const fname = img.name || '附件';
+          return `<div class="img-thumb-wrap" style="display:inline-flex;align-items:center;padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--primary);cursor:pointer;text-decoration:none" onclick="downloadFile('${encodeURIComponent(img.data || img)}','${encodeURIComponent(fname)}')">📎 ${escHtml(fname)} <span style="margin-left:6px;color:#999;font-size:10px" onclick="event.stopPropagation();delFile(${id},'${key}',${idx})">×</span></div>`;
+        }).join('')}
+      </div>
+      <div class="img-upload-area"
+           onclick="document.getElementById('imgInput_${id}').click()"
+           ondragover="handleFileDragOver(event,this)"
+           ondragleave="handleFileDragLeave(event,this)"
+           ondrop="handleFileDrop(event,${id},'${key}',this)">＋ 上传收款凭证（支持 JPG、PNG、PDF、Word，可拖拽）</div>
+      <input type="file" id="imgInput_${id}" style="display:none" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,image/*" multiple onchange="uploadFiles(this,${id},'${key}')">
+    </div>`;
+  }
+
+  // 文件上传（技术服务 / 保证金）
+  if (isTech) {
+    html += `<div style="margin-top:18px">
+      <div style="font-size:14px;font-weight:700;color:var(--primary-dark);margin-bottom:8px">📁 附件文件</div>
+      <div class="img-gallery" id="detailGallery_${id}">
+        ${(images||[]).map((img, idx) => {
+          const isImg = String(img.data || img).startsWith('data:image');
+          if (isImg) return `<div class="img-thumb-wrap">
+            <img class="img-thumb" src="${img.data || img}" onclick="previewImg(this.src)">
+            <button class="img-del-btn" onclick="delFile(${id}, '${key}', ${idx})" title="删除">×</button>
+          </div>`;
+          const fname = img.name || '附件';
+          return `<div style="display:inline-flex;align-items:center;padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--primary);cursor:pointer" onclick="downloadFile('${encodeURIComponent(img.data || img)}','${encodeURIComponent(fname)}')">📎 ${escHtml(fname)} <span style="margin-left:6px;color:#999;font-size:10px" onclick="event.stopPropagation();delFile(${id},'${key}',${idx})">×</span></div>`;
+        }).join('')}
+        ${(images||[]).length === 0 ? '<span style="color:var(--text-muted);font-size:13px">暂无附件</span>' : ''}
+      </div>
+      <div class="img-upload-area"
+           onclick="document.getElementById('fileInput_${id}').click()"
+           ondragover="handleFileDragOver(event,this)"
+           ondragleave="handleFileDragLeave(event,this)"
+           ondrop="handleFileDrop(event,${id},'${key}',this)">＋ 上传附件（支持 JPG、PNG、PDF、Word，可拖拽）</div>
+      <input type="file" id="fileInput_${id}" style="display:none" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,image/*" multiple onchange="uploadFiles(this,${id},'${key}')">
+    </div>`;
+  }
+
+  html += `<div style="margin-top:18px;display:flex;gap:8px;justify-content:flex-end">
+    <button class="btn btn-primary" id="btnEditFromDetail">✏️ 编辑</button>
+    <button class="btn btn-outline" onclick="closeModal('detailModal')">关闭</button>
+  </div>`;
+
+  if (mismatch) {
+    html += `<div style="margin-top:12px;padding:10px 12px;border-radius:8px;background:#fff4e5;border:1px solid #ffd8a8;color:#8a4b00;font-size:12px;line-height:1.6">
+      ⚠️ 金额校验不一致：服务费(${fmtAmt(mismatch.serviceFee)}) + 交易手续费(${fmtAmt(mismatch.txnFee)}) + 实收金额(${fmtAmt(mismatch.received)}) = ${fmtAmt(mismatch.sum)}，与收入金额(${fmtAmt(mismatch.income)})不一致。
+    </div>`;
+  }
+
+  document.getElementById('modalContent').innerHTML = html;
+  openModal('detailModal');
+  // 绑定详情页编辑按钮
+  document.getElementById('btnEditFromDetail').addEventListener('click', function() {
+    editRecord(id);
+  });
+  if (mismatch) {
+    toast('金额校验异常：服务费+交易手续费+实收金额 不等于 收入金额', 'danger');
+  }
+}
+
+// ===================== 文件管理（图片/PDF/Word） =====================
+// 读取文件为 {name, type, data(base64)} 对象
+async function readFileAsObject(file) {
+  const data = await fileToDataUrl(file);
+  return { name: file.name, type: file.type, data };
+}
+
+async function uploadFilesList(files, id, key) {
+  if (!files || !files.length) return;
+  const existing = await IDB.getImages(key);
+  const newFiles = [...existing];
+  for (const f of files) newFiles.push(await readFileAsObject(f));
+  await IDB.putImages(key, newFiles);
+  refreshGallery(id, key, newFiles);
+  // 记录文件数量、显式图片key（备份恢复后仍稳定关联）
+  const rec = allData.find(x => x.id === id);
+  if (rec) await IDB.put(Object.assign({}, rec, {
+    _fileCount: newFiles.length,
+    _imgKey: key,
+    _updatedAt: new Date().toISOString()
+  }));
+  toast(`已上传 ${files.length} 个文件`);
+}
+
+async function uploadFiles(input, id, key) {
+  const files = input.files;
+  await uploadFilesList(files, id, key);
+  input.value = '';
+}
+
+function handleFileDragOver(e, el) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (el) el.classList.add('dragover');
+}
+
+function handleFileDragLeave(e, el) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (el) el.classList.remove('dragover');
+}
+
+async function handleFileDrop(e, id, key, el) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (el) el.classList.remove('dragover');
+  const files = [...(e.dataTransfer ? e.dataTransfer.files : [])];
+  if (!files.length) return;
+  await uploadFilesList(files, id, key);
+}
+
+async function delFile(id, key, idx) {
+  const imgs = await IDB.getImages(key);
+  imgs.splice(idx, 1);
+  await IDB.putImages(key, imgs);
+  refreshGallery(id, key, imgs);
+  const rec = allData.find(x => x.id === id);
+  if (rec) await IDB.put(Object.assign({}, rec, { _fileCount: imgs.length, _imgKey: key, _updatedAt: new Date().toISOString() }));
+  toast('已删除');
+}
+
+function refreshGallery(id, key, imgs) {
+  const gallery = document.getElementById(`detailGallery_${id}`);
+  if (!gallery) return;
+  gallery.innerHTML = imgs.map((img, idx) => {
+    const isImg = String(img.data || img).startsWith('data:image');
+    if (isImg) return `<div class="img-thumb-wrap">
+      <img class="img-thumb" src="${img.data || img}" onclick="previewImg(this.src)">
+      <button class="img-del-btn" onclick="delFile(${id},'${key}',${idx})">×</button>
+    </div>`;
+    const fname = img.name || '附件';
+    return `<div style="display:inline-flex;align-items:center;padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--primary);cursor:pointer" onclick="downloadFile('${encodeURIComponent(img.data || img)}','${encodeURIComponent(fname)}')">📎 ${escHtml(fname)} <span style="margin-left:6px;color:#999;font-size:10px" onclick="event.stopPropagation();delFile(${id},'${key}',${idx})">×</span></div>`;
+  }).join('');
+  doSearch(); // 刷新表格凭证缩略图
+}
+
+// 下载文件（base64 → blob → link）
+function downloadFile(dataUri, filename) {
+  try {
+    const uri = decodeURIComponent(dataUri);
+    const byteStr = atob(uri.split(',')[1]);
+    const mime = uri.match(/data:([^;]+)/)[1];
+    const arr = new Uint8Array(byteStr.length);
+    for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
+    const blob = new Blob([arr], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = decodeURIComponent(filename); a.click();
+    URL.revokeObjectURL(url);
+  } catch(e) { toast('下载失败'); }
+}
+
+function fileToDataUrl(file) {
+  return new Promise(resolve => { const r = new FileReader(); r.onload = e => resolve(e.target.result); r.readAsDataURL(file); });
+}
+function previewImg(src) { document.getElementById('imgPreviewImg').src = src; document.getElementById('imgPreview').classList.add('open'); }
+
+// ===================== 编辑/新增 =====================
+function openAddModal() { renderEditForm(null); openModal('detailModal'); }
+function editRecord(id) { renderEditForm(allData.find(x => x.id === id)); openModal('detailModal'); }
+
+function renderEditForm(r) {
+  const isNew = !r;
+  const isTech = r && r['项目'] === '技术服务';
+  document.getElementById('modalTitle').textContent = isNew ? '➕ 新增记录' : '✏️ 编辑记录';
+
+  const smFormFields = [
+    { key:'收入确认期间', label:'收入确认期间', type:'text', placeholder:'如 202601' },
+    { key:'项目', label:'项目类型', type:'select', options:['服务市场','技术服务','保证金'] },
+    { key:'归属服务商企业', label:'归属服务商企业', type:'text' },
+    { key:'客户', label:'客户', type:'text' },
+    { key:'服务订单号', label:'服务订单号', type:'text' },
+    { key:'收入金额', label:'收入金额', type:'number' },
+    { key:'实收金额', label:'实收金额', type:'number' },
+    { key:'服务费', label:'服务费', type:'number' },
+    { key:'交易手续费', label:'交易手续费', type:'number' },
+    { key:'支出费用', label:'支出费用', type:'number' },
+    { key:'到账情况', label:'到账情况', type:'select', options:['富友分账','公户','西之月科技','随大货'] },
+    { key:'订单状态', label:'订单状态', type:'select', options:['交易完成','商家服务中'] },
+    { key:'下单时间', label:'下单时间', type:'datetime-local' },
+    { key:'详情', label:'服务详情', type:'textarea', full:true },
+    { key:'备注', label:'备注', type:'textarea', full:true },
+  ];
+
+  let html = `<form class="edit-form" id="editForm" onsubmit="saveRecord(event,${r?r.id:'null'})">`;
+  smFormFields.forEach(f => {
+    const val = r ? (r[f.key] != null ? r[f.key] : '') : '';
+    const cls = f.full ? 'full' : '';
+    if (f.type === 'select') {
+      const opts = f.options.map(o => `<option value="${o}" ${String(val)===o?'selected':''}>${o}</option>`).join('');
+      html += `<div class="form-group ${cls}"><label>${f.label}</label><select name="${f.key}"><option value="">请选择</option>${opts}</select></div>`;
+    } else if (f.type === 'textarea') {
+      html += `<div class="form-group ${cls}"><label>${f.label}</label><textarea name="${f.key}">${escHtml(String(val))}</textarea></div>`;
+    } else {
+      const iv = f.type==='datetime-local' ? (val ? String(val).substring(0,16) : '') : val;
+      html += `<div class="form-group ${cls}"><label>${f.label}</label><input type="${f.type}" name="${f.key}" value="${escHtml(String(iv))}" placeholder="${f.placeholder||''}"></div>`;
+    }
+  });
+  html += `<div class="full" style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px">
+    <button type="submit" class="btn btn-primary">💾 保存</button>
+    <button type="button" class="btn btn-outline" onclick="closeModal('detailModal')">取消</button>
+  </div></form>`;
+  document.getElementById('modalContent').innerHTML = html;
+}
+
+async function saveRecord(e, id) {
+  e.preventDefault();
+  const form = document.getElementById('editForm');
+  const data = {};
+  ALL_STORE_FIELDS.forEach(key => {
+    const el = form.querySelector(`[name="${key}"]`);
+    if (el) data[key] = el.value === '' ? null : el.value;
+  });
+
+  const proj = data['项目'];
+  if (proj === '服务市场' && !data['服务订单号']) { toast('服务市场记录须填写服务订单号！', 'danger'); return; }
+
+  data._updatedAt = new Date().toISOString();
+  const mismatch = getSMAmountMismatch(data);
+  if (mismatch) {
+    toast('金额校验异常：服务费+交易手续费+实收金额 不等于 收入金额', 'danger');
+  }
+
+  try {
+    if (id) {
+      const existing = allData.find(x => x.id === id);
+      await SB.update(id, Object.assign({}, existing, data, { id }));
+    } else {
+      await SB.add(data);
+    }
+    allData = await SB.getAll();
+  } catch(e) {
+    toast('保存失败：' + e.message, 'danger');
+    console.error('保存失败', e);
+    return;
+  }
+  closeModal('detailModal');
+  buildFilterOptions();
+  doSearch();
+  updateDBInfo();
+  toast('保存成功 ✓');
+}
+
+async function deleteRecord(id) {
+  if (!confirm('确定删除该记录？')) return;
+  await SB.delete(id);
+  allData = allData.filter(x => x.id !== id);
+  buildFilterOptions();
+  doSearch();
+  updateDBInfo();
+  toast('已删除');
+}
+
+// ===================== Excel 导入（智能表头识别）=====================
+function normalizeHeaderText(s) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[()（）\[\]【】\-_/\\:：.。,，]/g, '')
+    .trim();
+}
+
+function isIgnoredAmountHeader(headerText) {
+  const hn = normalizeHeaderText(headerText);
+  return IGNORED_AMOUNT_HEADER_KEYWORDS.some(k => hn.includes(normalizeHeaderText(k)));
+}
+
+function buildHeaderMapping(rawHeaders) {
+  const mapping = {}; // rawHeader -> stdKey
+
+  // 0) 金额字段硬规则（先处理最容易串列的字段）
+  rawHeaders.forEach(h => {
+    const hn = normalizeHeaderText(h);
+    if (!hn) return;
+    if (isIgnoredAmountHeader(h)) return;
+    if (!Object.values(mapping).includes('实收金额') && (hn.includes('实收金额') || hn.includes('实收'))) {
+      mapping[h] = '实收金额';
+      return;
+    }
+    if (!Object.values(mapping).includes('收入金额') && (hn.includes('收入金额') || hn === '金额' || hn.includes('订单金额'))) {
+      mapping[h] = '收入金额';
+    }
+  });
+
+  // 1) 优先精确匹配，避免“实收金额”被“金额”误识别成“收入金额”
+  rawHeaders.forEach(h => {
+    if (mapping[h]) return;
+    if (isIgnoredAmountHeader(h)) return;
+    const hl = String(h).trim().toLowerCase();
+    const hn = normalizeHeaderText(h);
+    if (!hl) return;
+    for (const [stdKey, candidates] of Object.entries(HEADER_MAP)) {
+      if (Object.values(mapping).includes(stdKey)) continue;
+      if (candidates.some(c => {
+        const cl = c.trim().toLowerCase();
+        const cn = normalizeHeaderText(c);
+        return cl === hl || cn === hn;
+      })) {
+        mapping[h] = stdKey;
+        break;
+      }
+    }
+  });
+
+  // 2) 再做模糊匹配（取最长候选词，降低“金额/费用”这类短词误命中）
+  rawHeaders.forEach(h => {
+    if (mapping[h]) return;
+    if (isIgnoredAmountHeader(h)) return;
+    const hn = normalizeHeaderText(h);
+    if (!hn) return;
+
+    let best = null; // { stdKey, score }
+    for (const [stdKey, candidates] of Object.entries(HEADER_MAP)) {
+      if (Object.values(mapping).includes(stdKey)) continue;
+      for (const c of candidates) {
+        const cn = normalizeHeaderText(c);
+        if (!cn) continue;
+        const hit = hn.includes(cn) || cn.includes(hn);
+        if (!hit) continue;
+        const score = cn.length;
+        if (!best || score > best.score) best = { stdKey, score };
+      }
+    }
+    if (best) mapping[h] = best.stdKey;
+  });
+
+  return mapping;
+}
+
+function pickAmountHeaders(rawHeaders) {
+  let incomeHeader = null;
+  let receivedHeader = null;
+  rawHeaders.forEach(h => {
+    if (isIgnoredAmountHeader(h)) return;
+    const hn = normalizeHeaderText(h);
+    if (!hn) return;
+    if (!receivedHeader && (hn.includes('实收金额') || hn.includes('实收'))) receivedHeader = h;
+    if (!incomeHeader && (hn.includes('收入金额') || hn === '金额' || hn.includes('订单金额'))) {
+      // 避免把“实收金额”误当成“收入金额”
+      if (!(hn.includes('实收金额') || hn.includes('实收'))) incomeHeader = h;
+    }
+  });
+  return { incomeHeader, receivedHeader };
+}
+
+function handleDragOver(e) { e.preventDefault(); document.getElementById('uploadZone').classList.add('dragover'); }
+function handleDragLeave(e) { document.getElementById('uploadZone').classList.remove('dragover'); }
+function handleDrop(e) {
+  e.preventDefault(); document.getElementById('uploadZone').classList.remove('dragover');
+  if (e.dataTransfer.files[0]) processExcelFile(e.dataTransfer.files[0]);
+}
+function handleExcelUpload(input) { if (input.files[0]) processExcelFile(input.files[0]); input.value = ''; }
+
+// ===================== Excel 单元格值读取（支持公式） =====================
+// sheet_to_json(raw:false) 对公式单元格依赖缓存值，可能为空；
+// 本函数直接读 worksheet cell 对象，优先取 v（值），保证公式结果能读取。
+function getCellValue(cell) {
+  if (!cell) return null;
+  // t=1: string, t=2: number, t=3: date, t=4: boolean, t=5: error, t=6: formula
+  const t = cell.t;
+  // 公式单元格：优先取缓存结果（cell.v），无缓存则取格式化文本（cell.w）
+  if (t === 'f') return (cell.v !== undefined && cell.v !== null) ? cell.v : (cell.w !== undefined ? cell.w : null);
+  if (t === 's') return cell.v; // string
+  if (t === 'n') return (cell.v !== undefined && cell.v !== null) ? cell.v : (cell.w !== undefined ? parseFloat(cell.w) : null); // number，无缓存取格式化文本
+  if (t === 'b') return cell.v; // boolean
+  if (t === 'e') return cell.v; // error → 取错误码
+  if (t === 'd') return cell.v instanceof Date ? cell.v.toISOString().substring(0,19).replace('T',' ') : cell.v; // date
+  return (cell.v !== undefined) ? cell.v : (cell.w !== undefined ? cell.w : null);
+}
+
+// 根据表头行范围找出表头行（跳过空白行）
+function detectHeaderRow(ws, minRow, maxRow) {
+  for (let r = minRow; r <= maxRow; r++) {
+    let hasContent = false;
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const addr = XLSX.utils.encode_cell({ r: r - 1, c });
+      if (ws[addr] && ws[addr].v !== undefined && ws[addr].v !== null && String(ws[addr].v).trim() !== '') {
+        hasContent = true; break;
+      }
+    }
+    if (hasContent) return r - 1; // 0-indexed
+  }
+  return minRow - 1;
+}
+
+// ===================== Excel 上传处理 =====================
+function renderImportPreview() {
+  const wrap = document.getElementById('importReview');
+  const tbody = document.getElementById('importReviewBody');
+  const meta = document.getElementById('importReviewMeta');
+  const selectAll = document.getElementById('importSelectAll');
+  if (!pendingImportRows.length) {
+    wrap.style.display = 'none';
+    return;
+  }
+
+  wrap.style.display = 'block';
+  tbody.innerHTML = pendingImportRows.map((row, idx) => {
+    const orderNo = escHtml(row.record['服务订单号'] || '-');
+    const detail = escHtml(row.record['详情'] || '-');
+    const income = fmtAmt(row.record['收入金额']);
+    let statusHtml = '<span style="color:var(--success)">可导入</span>';
+    if (!row.selectable) {
+      statusHtml = `<span class="import-review-bad">${escHtml(row.reason || '不可导入')}</span>`;
+    } else if (row.warnings && row.warnings.length) {
+      statusHtml = `<span class="import-review-warn">${escHtml(row.warnings.join('；'))}</span>`;
+    }
+    return `<tr>
+      <td><input type="checkbox" ${row.selected ? 'checked' : ''} ${row.selectable ? '' : 'disabled'} onchange="toggleImportRow(${idx},this.checked)"></td>
+      <td>${escHtml(row.sheetName)}</td>
+      <td>${row.rowNum}</td>
+      <td style="font-family:monospace">${orderNo}</td>
+      <td>${detail}</td>
+      <td>${income}</td>
+      <td>${statusHtml}</td>
+    </tr>`;
+  }).join('');
+
+  const selectable = pendingImportRows.filter(r => r.selectable).length;
+  const selected = pendingImportRows.filter(r => r.selectable && r.selected).length;
+  const blocked = pendingImportRows.filter(r => !r.selectable).length;
+  meta.textContent = `文件：${pendingImportFileName || '-'} ｜ 可导入 ${selectable} 条 ｜ 已选 ${selected} 条 ｜ 不可导入 ${blocked} 条`;
+
+  if (selectable === 0) {
+    selectAll.checked = false;
+    selectAll.indeterminate = false;
+  } else if (selected === 0) {
+    selectAll.checked = false;
+    selectAll.indeterminate = false;
+  } else if (selected === selectable) {
+    selectAll.checked = true;
+    selectAll.indeterminate = false;
+  } else {
+    selectAll.checked = false;
+    selectAll.indeterminate = true;
+  }
+}
+
+function toggleImportRow(idx, checked) {
+  if (!pendingImportRows[idx] || !pendingImportRows[idx].selectable) return;
+  pendingImportRows[idx].selected = !!checked;
+  renderImportPreview();
+}
+
+function toggleImportSelectAll(checked) {
+  pendingImportRows.forEach(r => {
+    if (r.selectable) r.selected = !!checked;
+  });
+  renderImportPreview();
+}
+
+function clearImportPreview() {
+  pendingImportRows = [];
+  pendingImportFileName = '';
+  pendingImportLogLines = [];
+  document.getElementById('importReview').style.display = 'none';
+}
+
+async function importSelectedRows() {
+  const selectedRows = pendingImportRows.filter(r => r.selectable && r.selected);
+  if (!selectedRows.length) {
+    toast('请先勾选要导入的数据', 'danger');
+    return;
+  }
+
+  let addedTotal = 0, updatedTotal = 0, skippedTotal = 0;
+  const logLines = [...pendingImportLogLines, `🧾 本次勾选导入：${selectedRows.length} 条`];
+  for (const row of selectedRows) {
+    const mismatch = getSMAmountMismatch(row.record);
+    if (mismatch) {
+      logLines.push(`&nbsp;&nbsp;⚠️ ${escHtml(row.sheetName)} 第 ${row.rowNum} 行金额不一致：服务费+交易手续费+实收金额=${fmtAmt(mismatch.sum)}，收入金额=${fmtAmt(mismatch.income)}`);
+    }
+    const result = await SB.upsert(row.record);
+    if (result.action === 'added') addedTotal++;
+    else if (result.action === 'skipped') skippedTotal++;
+    else updatedTotal++;
+  }
+
+  allData = await SB.getAll();
+  buildFilterOptions();
+  doSearch();
+  updateDBInfo();
+
+  logLines.push(`━━━ 合计：新增 <b style="color:var(--success)">${addedTotal}</b>，更新 <b style="color:var(--warning)">${updatedTotal}</b>，跳过 ${skippedTotal}，数据库共 <b>${allData.length}</b> 条`);
+  document.getElementById('uploadLog').style.display = 'block';
+  document.getElementById('uploadLogContent').innerHTML = logLines.join('<br>');
+  toast(`导入完成：新增${addedTotal}，更新${updatedTotal}`);
+  clearImportPreview();
+}
+
+function processExcelFile(file) {
+  const reader = new FileReader();
+  reader.onload = async e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+      const logLines = [`📂 文件：<b>${file.name}</b>，工作表：${wb.SheetNames.join('、')}`];
+      const parsedRows = [];
+
+      for (const sheetName of wb.SheetNames) {
+        const ws = wb.Sheets[sheetName];
+        if (!ws || !ws['!ref']) { logLines.push(`⚠️ <b>${sheetName}</b>：无数据`); continue; }
+
+        const range = XLSX.utils.decode_range(ws['!ref']);
+        const maxRow = range.e.r; // 0-indexed
+
+        // 自动检测表头行（跳过空白行）
+        const headerRowIdx = detectHeaderRow(ws, 1, Math.min(10, maxRow + 1));
+        if (headerRowIdx < 0) { logLines.push(`⚠️ <b>${sheetName}</b>：未找到表头`); continue; }
+
+        // 读取表头
+        const rawHeaders = [];
+        for (let c = range.s.c; c <= range.e.c; c++) {
+          const addr = XLSX.utils.encode_cell({ r: headerRowIdx, c });
+          rawHeaders.push(String(ws[addr] ? String(ws[addr].v).trim() : ''));
+        }
+        const headerMap = buildHeaderMapping(rawHeaders);
+        const amountHeaders = pickAmountHeaders(rawHeaders);
+        const validCols = Object.values(headerMap);
+        const ignoredHeaders = rawHeaders.filter(h => isIgnoredAmountHeader(h));
+        const hasData = validCols.some(k => ['服务订单号','收入金额','详情','归属服务商企业'].includes(k));
+        if (!hasData) {
+          logLines.push(`⏭️ <b>${sheetName}</b>：跳过（无可识别的业务列）`);
+          continue;
+        }
+        const unrecognized = rawHeaders.filter(h => !headerMap[h]);
+        logLines.push(`📋 <b>${sheetName}</b> 识别字段：${Object.entries(headerMap).map(([k,v])=>`${k}→${v}`).join('、') || '（无）'}`);
+        if (ignoredHeaders.length) logLines.push(`&nbsp;&nbsp;🚫 已忽略列：${ignoredHeaders.join('、')}`);
+        if (unrecognized.length) logLines.push(`&nbsp;&nbsp;⚠️ 未识别列（已忽略）：${unrecognized.join('、')}`);
+        let selectableCount = 0;
+        let blockedCount = 0;
+
+        // 从表头行之后开始读数据行
+        for (let r = headerRowIdx + 1; r <= maxRow; r++) {
+          // 构建该行字段映射（trim列名 → 值）
+          const origMap = {};
+          for (let c = range.s.c; c <= range.e.c; c++) {
+            const rawH = rawHeaders[c - range.s.c];
+            if (!rawH) continue;
+            const addr = XLSX.utils.encode_cell({ r, c });
+            origMap[rawH] = getCellValue(ws[addr]);
+          }
+
+          // 按映射提取字段
+          const record = {};
+          for (const [rawH, stdKey] of Object.entries(headerMap)) {
+            let v = origMap[rawH];
+            if (v === null || v === undefined) continue;
+            if (v instanceof Date) v = v.toISOString().substring(0,19).replace('T',' ');
+            if (['收入金额','实收金额','服务费','交易手续费','支出费用'].includes(stdKey)) {
+              const n = parseFloat(String(v).replace(/[^\d.-]/g,''));
+              v = isNaN(n) ? null : n;
+            }
+            record[stdKey] = v;
+          }
+
+          // 金额字段兜底纠偏：直接从原始表头取值，防止“收入金额/实收金额”串列
+          if (amountHeaders.incomeHeader) {
+            const rawIncome = origMap[amountHeaders.incomeHeader];
+            if (rawIncome !== null && rawIncome !== undefined && String(rawIncome).trim() !== '') {
+              const n = parseFloat(String(rawIncome).replace(/[^\d.-]/g,''));
+              record['收入金额'] = isNaN(n) ? record['收入金额'] : n;
+            }
+          }
+          if (amountHeaders.receivedHeader) {
+            const rawReceived = origMap[amountHeaders.receivedHeader];
+            if (rawReceived !== null && rawReceived !== undefined && String(rawReceived).trim() !== '') {
+              const n = parseFloat(String(rawReceived).replace(/[^\d.-]/g,''));
+              record['实收金额'] = isNaN(n) ? record['实收金额'] : n;
+            }
+          }
+
+          // 整行全空则跳过
+          if (Object.values(record).every(v => v === null || v === undefined || v === '')) continue;
+
+          const validProjects = ['技术服务', '服务市场', '保证金'];
+          if (validProjects.includes(record['项目'])) {
+            // 保持原值
+          } else if (record['服务订单号']) {
+            record['项目'] = '服务市场';
+          } else {
+            record['项目'] = '技术服务';
+          }
+          record._updatedAt = new Date().toISOString();
+          const rowMismatch = getSMAmountMismatch(record);
+          const rowData = {
+            sheetName,
+            rowNum: r + 1,
+            record,
+            selectable: true,
+            selected: true,
+            reason: '',
+            warnings: []
+          };
+          if (record['项目'] === '服务市场' && !record['服务订单号']) {
+            rowData.selectable = false;
+            rowData.selected = false;
+            rowData.reason = '服务市场记录缺少服务订单号';
+          }
+          if (rowMismatch) rowData.warnings.push('金额校验不一致');
+          if (rowData.selectable) selectableCount++;
+          else blockedCount++;
+          parsedRows.push(rowData);
+        }
+        logLines.push(`&nbsp;&nbsp;🧮 解析完成：可导入 ${selectableCount} 条，不可导入 ${blockedCount} 条`);
+      }
+      pendingImportRows = parsedRows;
+      pendingImportFileName = file.name;
+      pendingImportLogLines = logLines;
+      renderImportPreview();
+      document.getElementById('uploadLog').style.display = 'block';
+      document.getElementById('uploadLogContent').innerHTML = [...logLines, `👉 请先在“导入预览清单”里勾选，然后点击“导入已选”`].join('<br>');
+      toast(`解析完成：可勾选 ${parsedRows.filter(x => x.selectable).length} 条`);
+    } catch(err) {
+      console.error('Excel处理错误:', err);
+      document.getElementById('uploadLog').style.display = 'block';
+      document.getElementById('uploadLogContent').innerHTML = `<pre style="color:red">处理出错：${err.message}\n${err.stack}</pre>`;
+      toast('导入失败：' + err.message, 'error');
+    }
+  };
+  reader.onerror = e => {
+    toast('文件读取失败，请重试', 'error');
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ===================== 导出 =====================
+function getExportFields(data) {
+  const hasTech = data.some(r => r['项目'] === '技术服务');
+  const hasOther = data.some(r => r['项目'] !== '技术服务');
+  
+  // 导出字段与详情弹窗一致
+  const techFields = ['收入确认期间','项目','详情','归属服务商企业','客户','收入金额','实收金额','到账情况','备注'];
+  const otherFields = ['收入确认期间','项目','服务订单号','订单状态','归属服务商企业','客户','收入金额','实收金额','服务费','交易手续费','支出费用','到账情况','下单时间','备注'];
+  
+  // 合并所有需要的字段（去重保持顺序）
+  const allFields = new Set();
+  if (hasTech) techFields.forEach(f => allFields.add(f));
+  if (hasOther) otherFields.forEach(f => allFields.add(f));
+  
+  // 按合理顺序排列
+  const order = ['收入确认期间','项目','服务订单号','订单状态','归属服务商企业','客户','详情','收入金额','实收金额','服务费','交易手续费','支出费用','到账情况','下单时间','备注'];
+  return order.filter(f => allFields.has(f));
+}
+
+function getExportDetailValue(record) {
+  if (!record) return '';
+  const v = record['详情'] != null && record['详情'] !== '' ? record['详情'] : (record['服务详情'] || '');
+  return v != null ? String(v) : '';
+}
+
+function exportExcel() {
+  const exportFields = getExportFields(filteredData);
+  const data = filteredData.map(r => {
+    const row = {};
+    exportFields.forEach(k => {
+      if (k === '详情') row[k] = getExportDetailValue(r);
+      else row[k] = r[k] != null ? r[k] : '';
+    });
+    return row;
+  });
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb2 = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb2, ws, '收入数据');
+  XLSX.writeFile(wb2, `收入管理_${new Date().toISOString().substring(0,10)}.xlsx`);
+  toast('Excel 导出成功');
+}
+
+function exportCSV() {
+  const exportFields = getExportFields(filteredData);
+  const header = exportFields.join(',');
+  const rows = filteredData.map(r => exportFields.map(k => {
+    const val = k === '详情' ? getExportDetailValue(r) : (r[k] != null ? r[k] : '');
+    return `"${String(val).replace(/"/g,'""')}"`;
+  }).join(','));
+  const csv = '\uFEFF' + [header,...rows].join('\r\n');
+  const blob = new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `收入管理_${new Date().toISOString().substring(0,10)}.csv`;
+  a.click(); URL.revokeObjectURL(a.href);
+  toast('CSV 导出成功');
+}
+
+// ===================== 备份 =====================
+async function exportBackup() {
+  const records = await IDB.getAll();
+  const images = await IDB.getAllImages();
+  const meta = await IDB.getAllMeta();
+  // 保留 id 以便重新导入后图片 key 仍能匹配
+  const blob = new Blob([JSON.stringify({ version:5, exportedAt:new Date().toISOString(), records, images, meta },null,2)],{type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `收入管理备份_${new Date().toISOString().substring(0,10)}.json`;
+  a.click(); URL.revokeObjectURL(a.href);
+  toast('备份导出成功');
+}
+
+async function importBackup(input) {
+  const file = input.files[0]; if (!file) return;
+  let backup;
+  try { backup = JSON.parse(await file.text()); } catch(e) { toast('备份文件格式错误！','danger'); return; }
+  if (!confirm(`确认导入备份？将覆盖现有 ${allData.length} 条数据。`)) return;
+
+  await IDB.clearAllStores();
+  const tx = IDB.db.transaction('records','readwrite');
+  const store = tx.objectStore('records');
+  // version:4/5 保留原 id，恢复后图片 key 仍能匹配
+  for (const r of (backup.records||[])) {
+    const rc = {...r};
+    if ((backup.version === 4 || backup.version === 5) && rc.id !== undefined) {
+      store.put(rc); // 用原 id，图片 key 关联不变
+    } else {
+      delete rc.id; store.add(rc); // 旧格式无 id，自动生成
+    }
+  }
+  await new Promise(res => { tx.oncomplete = res; });
+  if (backup.images) {
+    for (const img of backup.images) await IDB.putImages(img.orderId, img.images);
+  }
+  if (backup.meta && Array.isArray(backup.meta)) {
+    const metaTx = IDB.db.transaction('meta', 'readwrite');
+    const metaStore = metaTx.objectStore('meta');
+    for (const m of backup.meta) metaStore.put(m);
+    await new Promise(res => { metaTx.oncomplete = res; });
+  }
+
+  allData = await IDB.getAll();
+  buildFilterOptions(); doSearch(); updateDBInfo();
+  toast(`备份导入成功：${allData.length} 条`);
+  input.value = '';
+}
+
+async function clearAllData() {
+  if (!confirm('确定清空所有数据？此操作不可恢复！')) return;
+  await IDB.clearAllStores(); allData = [];
+  buildFilterOptions(); doSearch(); updateDBInfo();
+  toast('数据已清空');
+}
+
+// ===================== 图表 =====================
+function renderCharts() {
+  const projectMap={}, serviceMap={};
+  // 服务市场专属服务商统计
+  const vendorMapSM = {};
+  // 订单服务专属服务商统计
+  const vendorMapDS = {};
+  const projectTypes = ['服务市场', '技术服务', '保证金', '订单服务'];
+  
+  // 对月份进行去重处理（trim + 数字格式标准化）
+  const normalizePeriod = (p) => {
+    if (!p) return null;
+    const trimmed = String(p).trim();
+    // 如果是纯数字字符串，直接返回
+    if (/^\d+$/.test(trimmed)) return trimmed;
+    // 如果是数字带小数，截取整数部分
+    const num = parseFloat(trimmed);
+    if (!isNaN(num)) return String(Math.round(num));
+    return trimmed;
+  };
+  
+  // 重新汇总，使用标准化后的月份
+  const normalizedMonthMap = {};
+  const normalizedMonthProjectMap = {};
+  
+  allData.forEach(r => {
+    const rawPeriod = r['收入确认期间'];
+    const month = normalizePeriod(rawPeriod);
+    if (!month) return;
+    
+    // 月度总收入（服务市场/订单服务取服务费，技术服务取收入金额）
+    const proj = r['项目'] || '其他';
+    if (!normalizedMonthMap[month]) normalizedMonthMap[month] = 0;
+    if (proj === '服务市场' || proj === '订单服务') {
+      normalizedMonthMap[month] += parseFloat(r['服务费']) || 0;
+    } else if (proj === '技术服务') {
+      normalizedMonthMap[month] += parseFloat(r['收入金额']) || 0;
+    }
+    
+    // 按月份和项目类型汇总（服务市场/订单服务取服务费，技术服务取收入金额）
+    if (!normalizedMonthProjectMap[month]) {
+      normalizedMonthProjectMap[month] = {};
+      projectTypes.forEach(pt => normalizedMonthProjectMap[month][pt] = 0);
+    }
+    if (proj === '服务市场' || proj === '订单服务') {
+      normalizedMonthProjectMap[month][proj] += parseFloat(r['服务费']) || 0;
+    } else if (proj === '技术服务') {
+      normalizedMonthProjectMap[month]['技术服务'] += parseFloat(r['收入金额']) || 0;
+    }
+    
+    // 其他统计（各项目类型收入占比）
+    if (proj === '服务市场' || proj === '订单服务') {
+      projectMap[proj] = (projectMap[proj]||0) + (parseFloat(r['服务费'])||0);
+    } else {
+      projectMap[proj] = (projectMap[proj]||0) + (parseFloat(r['收入金额'])||0);
+    }
+
+    // 仅统计服务市场和订单服务的服务商
+    if (proj === '服务市场') {
+      const vendor = r['归属服务商企业'] || '未知';
+      vendorMapSM[vendor] = (vendorMapSM[vendor]||0) + (parseFloat(r['服务费'])||0);
+    } else if (proj === '订单服务') {
+      const vendor = r['归属服务商企业'] || '未知';
+      vendorMapDS[vendor] = (vendorMapDS[vendor]||0) + (parseFloat(r['服务费'])||0);
+    }
+
+    const svc = r['详情'] ? r['详情'].substring(0,14) : '其他';
+    serviceMap[svc] = (serviceMap[svc]||0) + (parseFloat(r['收入金额'])||0);
+  });
+  
+  const months = Object.keys(normalizedMonthMap).sort();
+  const fmtYAxis = (v) => v >= 10000 ? (v/10000).toFixed(1) + 'w' : v;
+  echarts.init(document.getElementById('chartTrend')).setOption({
+    tooltip:{trigger:'axis'},
+    xAxis:{type:'category',data:months,axisLabel:{rotate:30,fontSize:11}},
+    yAxis:{type:'value',name:'金额(元)',axisLabel:{formatter:fmtYAxis}},
+    series:[{type:'bar',data:months.map(m=>+(normalizedMonthMap[m].toFixed(2))),itemStyle:{color:'#6c5ce7'}}],
+    grid:{left:70,right:30,bottom:70,top:40}
+  });
+  
+  echarts.init(document.getElementById('chartPie')).setOption({
+    tooltip:{trigger:'item',formatter:'{b}: ¥{c} ({d}%)'},
+    series:[{type:'pie',radius:['35%','68%'],data:Object.entries(projectMap).map(([k,v])=>({name:k,value:+v.toFixed(2)})),label:{formatter:'{b}\n{d}%'}}],
+    color:['#6c5ce7','#00b894','#fd79a8','#fdcb6e','#74b9ff','#e17055']
+  });
+  const top10 = Object.entries(vendorMapSM).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  echarts.init(document.getElementById('chartTop10')).setOption({
+    tooltip:{trigger:'axis',axisPointer:{type:'shadow'}},
+    xAxis:{type:'value',name:'金额(元)'},
+    yAxis:{type:'category',data:top10.map(e=>e[0]).reverse(),axisLabel:{fontSize:10,width:100,overflow:'break'}},
+    series:[{type:'bar',data:top10.map(e=>+e[1].toFixed(2)).reverse(),itemStyle:{color:p=>`hsl(${260+p.dataIndex*8},70%,65%)`},label:{show:true,position:'right',fontSize:11,formatter:p=>'¥'+p.value.toLocaleString()}}],
+    grid:{left:120,right:80,bottom:30,top:10}
+  });
+  // 订单服务Top10服务商
+  const top10DS = Object.entries(vendorMapDS).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  echarts.init(document.getElementById('chartTop10DS')).setOption({
+    tooltip:{trigger:'axis',axisPointer:{type:'shadow'}},
+    xAxis:{type:'value',name:'金额(元)'},
+    yAxis:{type:'category',data:top10DS.map(e=>e[0]).reverse(),axisLabel:{fontSize:10,width:100,overflow:'break'}},
+    series:[{type:'bar',data:top10DS.map(e=>+e[1].toFixed(2)).reverse(),itemStyle:{color:p=>`hsl(${340+p.dataIndex*8},70%,65%)`},label:{show:true,position:'right',fontSize:11,formatter:p=>'¥'+p.value.toLocaleString()}}],
+    grid:{left:120,right:80,bottom:30,top:10}
+  });
+}
+
+// ===================== Tab =====================
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+  document.querySelector(`[onclick="switchTab('${name}')"]`).classList.add('active');
+  document.getElementById(`tab-${name}`).classList.add('active');
+  if (name==='charts') setTimeout(renderCharts,100);
+}
+
+// ===================== 工具 =====================
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.getElementById('detailModal').addEventListener('click', function(e){ if(e.target===this) closeModal('detailModal'); });
+document.getElementById('helpModal').addEventListener('click', function(e){ if(e.target===this) closeModal('helpModal'); });
+
+function openHelp() {
+  const helpText = `
+    <h3 style="margin:0 0 16px;font-size:15px;color:var(--primary-dark)">一、项目类型说明</h3>
+    <ul style="margin:0 0 16px;padding-left:20px">
+      <li><b>服务市场</b>：来自服务市场的订单，有服务订单号，收入按服务费统计</li>
+      <li><b>技术服务</b>：技术开发/服务类收入，收入按收入金额统计</li>
+      <li><b>保证金</b>：客户缴纳的保证金，账务处理特殊</li>
+      <li><b>订单服务</b>：来自订单服务的收入，有服务订单号，收入按服务费统计</li>
+    </ul>
+    
+    <h3 style="margin:0 0 16px;font-size:15px;color:var(--primary-dark)">二、数据看板说明</h3>
+    <ul style="margin:0 0 16px;padding-left:20px">
+      <li><b>月度收入金额趋势</b>：展示各月收入总额（服务市场/订单服务取服务费，技术服务取收入金额）</li>
+      <li><b>各项目类型收入占比</b>：饼图展示各项目类型收入占比</li>
+      <li><b>Top 10 服务商</b>：分别展示服务市场、订单服务的服务商收入排名</li>
+    </ul>
+    
+    <h3 style="margin:0 0 16px;font-size:15px;color:var(--primary-dark)">三、筛选功能</h3>
+    <ul style="margin:0 0 16px;padding-left:20px">
+      <li><b>服务订单号</b>：支持批量输入，用逗号分隔，可模糊匹配</li>
+      <li><b>项目类型</b>：支持下拉多选，同时勾选多个类型进行筛选</li>
+      <li><b>收入确认期间</b>：支持下拉多选，可同时选择多个期间</li>
+      <li><b>下单时间范围</b>：按订单创建时间筛选起止日期</li>
+    </ul>
+    
+    <h3 style="margin:0 0 16px;font-size:15px;color:var(--primary-dark)">四、数据导入</h3>
+    <ul style="margin:0 0 16px;padding-left:20px">
+      <li>支持上传 Excel 文件（.xlsx/.xls），自动识别表头并导入</li>
+      <li><b>新增规则</b>：表格中不存在的服务订单号 → 自动新增记录</li>
+      <li><b>更新规则</b>：已存在的服务订单号 → 变化字段自动覆盖，无变化字段保持不变，空白字段补充填入</li>
+      <li>收款凭证请在记录详情中上传图片</li>
+    </ul>
+    
+    <h3 style="margin:0 0 16px;font-size:15px;color:var(--primary-dark)">五、金额校验</h3>
+    <ul style="margin:0 0 16px;padding-left:20px">
+      <li>服务市场记录会自动校验：收入金额 = 实收金额 + 服务费 + 交易手续费</li>
+      <li>若校验不通过，会在详情页显示警告提示</li>
+    </ul>
+    
+    <h3 style="margin:0 0 16px;font-size:15px;color:var(--primary-dark)">六、数据备份</h3>
+    <ul style="margin:0;padding-left:20px">
+      <li>支持导出 JSON 格式备份，包含所有记录和收款凭证图片</li>
+      <li>支持从备份文件恢复数据</li>
+    </ul>
+  `;
+  document.getElementById('helpContent').innerHTML = helpText;
+  openModal('helpModal');
+}
+
+function toast(msg, type) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = type==='danger' ? 'var(--danger)' : 'var(--primary)';
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), 3000);
+}
+
+function fmtNum(n) {
+  if (n >= 10000) return (n/10000).toFixed(2)+'w';
+  return n.toLocaleString('zh-CN',{minimumFractionDigits:0,maximumFractionDigits:2});
+}
+function fmtAmt(n) {
+  if (n===null||n===undefined||n==='') return '-';
+  const num = parseFloat(n);
+  if (isNaN(num)) return String(n);
+  return '¥'+num.toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function escHtml(s) {
+  if (s===null||s===undefined) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ===================== 复选框交互 =====================
+document.querySelectorAll('#fProject label').forEach(label => {
+  label.addEventListener('click', function(e) {
+    e.preventDefault();
+    const checkbox = this.querySelector('input[type="checkbox"]');
+    checkbox.checked = !checkbox.checked;
+    this.classList.toggle('checked', checkbox.checked);
+  });
+});
+
+// ===================== 启动 =====================
+init();
+</script>
+</body>
+</html>
