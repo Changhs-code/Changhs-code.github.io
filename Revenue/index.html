@@ -485,6 +485,14 @@ const revenueSupabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABAS
 
 // ===================== Supabase 数据层 =====================
 const SB = {
+  sanitizeRecordForDB(record) {
+    const clean = { ...(record || {}) };
+    // 本地使用的内部字段，不写入 Supabase records 表
+    delete clean._updatedAt;
+    delete clean._fileCount;
+    delete clean._imgKey;
+    return clean;
+  },
   // 获取所有记录
   async getAll() {
     const { data, error } = await revenueSupabaseClient
@@ -496,9 +504,10 @@ const SB = {
   },
   // 新增单条
   async add(record) {
+    const payload = this.sanitizeRecordForDB(record);
     const { data, error } = await revenueSupabaseClient
       .from('records')
-      .insert([record])
+      .insert([payload])
       .select()
       .single();
     if (error) throw error;
@@ -506,9 +515,10 @@ const SB = {
   },
   // 更新单条（按 id）
   async update(id, record) {
+    const payload = this.sanitizeRecordForDB(record);
     const { data, error } = await revenueSupabaseClient
       .from('records')
-      .update(record)
+      .update(payload)
       .eq('id', id)
       .select()
       .single();
@@ -543,10 +553,12 @@ const SB = {
           if (newVal !== null && newVal !== undefined && newVal !== '') merged[k] = newVal;
         }
         merged._updatedAt = new Date().toISOString();
-        await revenueSupabaseClient.from('records').update(merged).eq('id', existing.id);
+        const payload = this.sanitizeRecordForDB(merged);
+        await revenueSupabaseClient.from('records').update(payload).eq('id', existing.id);
         return { action: 'updated' };
       } else {
-        await revenueSupabaseClient.from('records').insert([record]);
+        const payload = this.sanitizeRecordForDB(record);
+        await revenueSupabaseClient.from('records').insert([payload]);
         return { action: 'added' };
       }
     } else if (proj === '技术服务' || proj === '保证金') {
@@ -570,15 +582,18 @@ const SB = {
       merged._updatedAt = new Date().toISOString();
       merged._techKey = techKey;
       if (existing) {
-        await revenueSupabaseClient.from('records').update(merged).eq('id', existing.id);
+        const payload = this.sanitizeRecordForDB(merged);
+        await revenueSupabaseClient.from('records').update(payload).eq('id', existing.id);
         return { action: 'skipped' };
       } else {
-        await revenueSupabaseClient.from('records').insert([merged]);
+        const payload = this.sanitizeRecordForDB(merged);
+        await revenueSupabaseClient.from('records').insert([payload]);
         return { action: 'added' };
       }
     } else {
       // 其他类型：直接插入
-      await revenueSupabaseClient.from('records').insert([record]);
+      const payload = this.sanitizeRecordForDB(record);
+      await revenueSupabaseClient.from('records').insert([payload]);
       return { action: 'added' };
     }
   },
@@ -591,7 +606,7 @@ const SB = {
   async bulkInsert(records, chunkSize = 200) {
     if (!records || !records.length) return;
     for (let i = 0; i < records.length; i += chunkSize) {
-      const chunk = records.slice(i, i + chunkSize);
+      const chunk = records.slice(i, i + chunkSize).map(r => this.sanitizeRecordForDB(r));
       const { error } = await revenueSupabaseClient.from('records').insert(chunk);
       if (error) throw error;
     }
@@ -711,6 +726,7 @@ const PAGE_SIZE = 20;
 let pendingImportRows = [];
 let pendingImportFileName = '';
 let pendingImportLogLines = [];
+let ACTIVE_STORE = 'supabase'; // 'supabase' | 'indexeddb'
 
 // ===================== IndexedDB =====================
 const IDB = {
@@ -880,10 +896,12 @@ const IDB = {
 async function init() {
   try {
     allData = await SB.getAll();
+    ACTIVE_STORE = 'supabase';
   } catch(e) {
     console.warn('Supabase 加载失败，降级到本地 IndexedDB', e);
     await IDB.open();
     allData = await IDB.getAll();
+    ACTIVE_STORE = 'indexeddb';
   }
   buildFilterOptions();
   doSearch();
@@ -1460,13 +1478,23 @@ async function saveRecord(e, id) {
   }
 
   try {
-    if (id) {
-      const existing = allData.find(x => x.id === id);
-      await SB.update(id, Object.assign({}, existing, data, { id }));
+    if (ACTIVE_STORE === 'supabase') {
+      if (id) {
+        const existing = allData.find(x => x.id === id);
+        await SB.update(id, Object.assign({}, existing, data, { id }));
+      } else {
+        await SB.add(data);
+      }
+      allData = await SB.getAll();
     } else {
-      await SB.add(data);
+      if (id) {
+        const existing = allData.find(x => x.id === id);
+        await IDB.put(Object.assign({}, existing, data, { id }));
+      } else {
+        await IDB.upsert(data);
+      }
+      allData = await IDB.getAll();
     }
-    allData = await SB.getAll();
   } catch(e) {
     toast('保存失败：' + e.message, 'danger');
     console.error('保存失败', e);
@@ -1481,8 +1509,13 @@ async function saveRecord(e, id) {
 
 async function deleteRecord(id) {
   if (!confirm('确定删除该记录？')) return;
-  await SB.delete(id);
-  allData = allData.filter(x => x.id !== id);
+  if (ACTIVE_STORE === 'supabase') {
+    await SB.delete(id);
+    allData = allData.filter(x => x.id !== id);
+  } else {
+    await IDB.delete(id);
+    allData = allData.filter(x => x.id !== id);
+  }
   buildFilterOptions();
   doSearch();
   updateDBInfo();
@@ -1709,13 +1742,15 @@ async function importSelectedRows() {
     if (mismatch) {
       logLines.push(`&nbsp;&nbsp;⚠️ ${escHtml(row.sheetName)} 第 ${row.rowNum} 行金额不一致：服务费+交易手续费+实收金额=${fmtAmt(mismatch.sum)}，收入金额=${fmtAmt(mismatch.income)}`);
     }
-    const result = await SB.upsert(row.record);
+    const result = ACTIVE_STORE === 'supabase'
+      ? await SB.upsert(row.record)
+      : await IDB.upsert(row.record);
     if (result.action === 'added') addedTotal++;
     else if (result.action === 'skipped') skippedTotal++;
     else updatedTotal++;
   }
 
-  allData = await SB.getAll();
+  allData = ACTIVE_STORE === 'supabase' ? await SB.getAll() : await IDB.getAll();
   buildFilterOptions();
   doSearch();
   updateDBInfo();
@@ -1985,6 +2020,7 @@ async function importBackup(input) {
 
     // 同步刷新本地页面数据（从云端拉取）
     allData = await SB.getAll();
+    ACTIVE_STORE = 'supabase';
   } catch (e) {
     // 云端失败时保留旧能力：恢复到本地 IndexedDB
     await IDB.open();
@@ -2007,6 +2043,7 @@ async function importBackup(input) {
       await new Promise(res => { metaTx.oncomplete = res; });
     }
     allData = await IDB.getAll();
+    ACTIVE_STORE = 'indexeddb';
   }
 
   buildFilterOptions(); doSearch(); updateDBInfo();
@@ -2019,9 +2056,11 @@ async function clearAllData() {
   try {
     await SB.clear();
     allData = await SB.getAll();
+    ACTIVE_STORE = 'supabase';
   } catch (e) {
     await IDB.clearAllStores();
     allData = [];
+    ACTIVE_STORE = 'indexeddb';
   }
   buildFilterOptions(); doSearch(); updateDBInfo();
   toast('数据已清空');
