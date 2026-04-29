@@ -478,6 +478,15 @@
 <div id="toast"></div>
 
 <script>
+// ===================== 工具函数 =====================
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 // ===================== Supabase 配置 =====================
 const SUPABASE_URL = 'https://uuymcvyuxinzgattyexn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1eW1jdnl1eGluemdhdHR5ZXhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczNTYzODksImV4cCI6MjA5MjkzMjM4OX0.DP2UGmvGC3XKGtQXKem84UmkhTX1z6cjZ0a3SXcaS8M';
@@ -496,14 +505,20 @@ const SB = {
   // 获取所有记录
   async getAll() {
     try {
+      console.log('Supabase: 正在加载 records 表...');
       const { data, error } = await revenueSupabaseClient
         .from('records')
-        .select('*')
-        .order('id', { ascending: false });
+        .select('*');
       if (error) {
-        console.error('Supabase getAll error:', error);
+        console.error('Supabase getAll error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
         throw error;
       }
+      console.log('Supabase: 加载成功，共', data?.length || 0, '条记录');
       return data || [];
     } catch (e) {
       console.error('Supabase getAll exception:', e);
@@ -902,18 +917,76 @@ const IDB = {
 
 // ===================== 初始化 =====================
 async function init() {
+  // 第一步：打开本地 IndexedDB（始终优先）
+  await IDB.open();
+  allData = await IDB.getAll();
+  console.log('>>> IndexedDB 加载完成，共', allData.length, '条记录');
+
+  // 第二步：尝试从云端 Supabase 获取数据
+  let cloudAvailable = false;
   try {
-    allData = await SB.getAll();
-    ACTIVE_STORE = 'supabase';
+    console.log('>>> 尝试连接 Supabase...');
+    const cloudData = await SB.getAll();
+    console.log('>>> Supabase 返回', cloudData?.length || 0, '条记录');
+
+    if (cloudData && cloudData.length > 0) {
+      // 云端有数据，合并到本地（用 cloudId 存储本地关联）
+      for (const record of cloudData) {
+        // 为云端数据生成一个临时的本地 id
+        record.localId = record.id;
+        await IDB.upsert(record);
+      }
+      allData = await IDB.getAll();
+      console.log('>>> 从云端同步了', cloudData.length, '条记录到本地');
+      cloudAvailable = true;
+    } else if (allData.length > 0) {
+      // 本地有数据，云端为空，上传本地数据到云端
+      console.log('>>> 本地有', allData.length, '条数据，尝试上传到云端...');
+      let uploaded = 0;
+      for (const record of allData) {
+        try {
+          // 生成新 UUID 给 Supabase
+          const newId = generateUUID();
+          const recordForCloud = Object.assign({}, record);
+          delete recordForCloud.id; // 删除数字 id，让 Supabase 用新 UUID
+          recordForCloud.id = newId;
+
+          await SB.add(recordForCloud);
+          uploaded++;
+        } catch(uploadErr) {
+          console.warn('>>> 上传失败:', uploadErr.message);
+        }
+      }
+      console.log('>>> 成功上传', uploaded, '条记录到云端');
+
+      // 从云端重新获取（这样 id 就统一是 UUID 了）
+      const cloudDataAfterUpload = await SB.getAll();
+      if (cloudDataAfterUpload && cloudDataAfterUpload.length > 0) {
+        // 清空本地，用云端数据替代
+        await IDB.clear();
+        for (const record of cloudDataAfterUpload) {
+          await IDB.upsert(record);
+        }
+        allData = cloudDataAfterUpload;
+        console.log('>>> 用云端数据同步本地，共', allData.length, '条');
+      }
+
+      cloudAvailable = true;
+    }
   } catch(e) {
-    console.warn('Supabase 加载失败，降级到本地 IndexedDB', e);
-    await IDB.open();
-    allData = await IDB.getAll();
-    ACTIVE_STORE = 'indexeddb';
+    console.warn('>>> Supabase 连接失败:', e.message || e);
+    cloudAvailable = false;
   }
+
+  // 设置存储模式
+  ACTIVE_STORE = cloudAvailable ? 'supabase' : 'indexeddb';
+  console.log('>>> 当前模式:', ACTIVE_STORE === 'supabase' ? '云端优先' : '本地优先');
+  console.log('>>> 当前数据:', allData.length, '条');
+
   buildFilterOptions();
   doSearch();
   updateDBInfo();
+
   // 点击外部关闭下拉
   window.addEventListener('click', function(e) {
     if (e.target.closest('.multi-select')) return;
@@ -1486,23 +1559,57 @@ async function saveRecord(e, id) {
   }
 
   try {
-    if (ACTIVE_STORE === 'supabase') {
-      if (id) {
-        const existing = allData.find(x => x.id === id);
-        await SB.update(id, Object.assign({}, existing, data, { id }));
-      } else {
-        await SB.add(data);
-      }
-      allData = await SB.getAll();
-    } else {
-      if (id) {
-        const existing = allData.find(x => x.id === id);
-        await IDB.put(Object.assign({}, existing, data, { id }));
-      } else {
-        await IDB.upsert(data);
-      }
-      allData = await IDB.getAll();
+    // 如果是新增记录（没有 id），先生成 UUID
+    let cloudId = id;
+    if (!cloudId) {
+      cloudId = generateUUID();
+      data.id = cloudId; // 使用 UUID 作为本地 id
     }
+
+    // 保存到本地 IndexedDB
+    if (id) {
+      const existing = allData.find(x => x.id === id);
+      await IDB.put(Object.assign({}, existing, data, { id }));
+    } else {
+      await IDB.upsert(data);
+    }
+
+    // 尝试同步到云端（如果可用）
+    if (ACTIVE_STORE === 'supabase') {
+      try {
+        // 准备云端数据（确保 id 是 UUID）
+        const cloudData = Object.assign({}, data);
+        if (!cloudId || cloudId.length > 20) {
+          // 已经是 UUID，直接使用
+        } else {
+          // 是数字 id，需要生成新的 UUID
+          cloudData.id = generateUUID();
+        }
+
+        if (id) {
+          // 更新：使用现有记录
+          const existing = allData.find(x => x.id === id);
+          await SB.update(id, Object.assign({}, existing, cloudData, { id: cloudData.id }));
+        } else {
+          // 新增：直接插入
+          delete cloudData.id; // 让 Supabase 自动生成 UUID
+          await SB.add(cloudData);
+        }
+
+        // 从云端重新获取数据同步本地
+        const cloudDataAfterSave = await SB.getAll();
+        if (cloudDataAfterSave && cloudDataAfterSave.length > 0) {
+          await IDB.clear();
+          for (const record of cloudDataAfterSave) {
+            await IDB.upsert(record);
+          }
+        }
+      } catch(cloudErr) {
+        console.warn('云端同步失败，数据已保存在本地:', cloudErr.message);
+      }
+    }
+
+    allData = await IDB.getAll();
   } catch(e) {
     toast('保存失败：' + e.message, 'danger');
     console.error('保存失败', e);
@@ -1517,13 +1624,20 @@ async function saveRecord(e, id) {
 
 async function deleteRecord(id) {
   if (!confirm('确定删除该记录？')) return;
+
+  // 始终先从本地删除
+  await IDB.delete(id);
+  allData = allData.filter(x => x.id !== id);
+
+  // 尝试同步删除到云端
   if (ACTIVE_STORE === 'supabase') {
-    await SB.delete(id);
-    allData = allData.filter(x => x.id !== id);
-  } else {
-    await IDB.delete(id);
-    allData = allData.filter(x => x.id !== id);
+    try {
+      await SB.delete(id);
+    } catch(e) {
+      console.warn('云端删除失败，本地已删除:', e.message);
+    }
   }
+
   buildFilterOptions();
   doSearch();
   updateDBInfo();
