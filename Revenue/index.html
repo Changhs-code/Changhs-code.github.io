@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>收入管理 · Revenue Management</title>
+<link rel="icon" href="data:,">
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -480,13 +481,13 @@
 // ===================== Supabase 配置 =====================
 const SUPABASE_URL = 'https://uuymcvyuxinzgattyexn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1eW1jdnl1eGluemdhdHR5ZXhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczNTYzODksImV4cCI6MjA5MjkzMjM4OX0.DP2UGmvGC3XKGtQXKem84UmkhTX1z6cjZ0a3SXcaS8M';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const revenueSupabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ===================== Supabase 数据层 =====================
 const SB = {
   // 获取所有记录
   async getAll() {
-    const { data, error } = await supabase
+    const { data, error } = await revenueSupabaseClient
       .from('records')
       .select('*')
       .order('created_at', { ascending: false });
@@ -495,7 +496,7 @@ const SB = {
   },
   // 新增单条
   async add(record) {
-    const { data, error } = await supabase
+    const { data, error } = await revenueSupabaseClient
       .from('records')
       .insert([record])
       .select()
@@ -505,7 +506,7 @@ const SB = {
   },
   // 更新单条（按 id）
   async update(id, record) {
-    const { data, error } = await supabase
+    const { data, error } = await revenueSupabaseClient
       .from('records')
       .update(record)
       .eq('id', id)
@@ -516,7 +517,7 @@ const SB = {
   },
   // 删除单条
   async delete(id) {
-    const { error } = await supabase
+    const { error } = await revenueSupabaseClient
       .from('records')
       .delete()
       .eq('id', id);
@@ -529,7 +530,7 @@ const SB = {
 
     if (proj === '服务市场' && orderId) {
       // 服务市场：用服务订单号去重
-      const { data: existing } = await supabase
+      const { data: existing } = await revenueSupabaseClient
         .from('records')
         .select('*')
         .eq('服务订单号', orderId)
@@ -542,10 +543,10 @@ const SB = {
           if (newVal !== null && newVal !== undefined && newVal !== '') merged[k] = newVal;
         }
         merged._updatedAt = new Date().toISOString();
-        await supabase.from('records').update(merged).eq('id', existing.id);
+        await revenueSupabaseClient.from('records').update(merged).eq('id', existing.id);
         return { action: 'updated' };
       } else {
-        await supabase.from('records').insert([record]);
+        await revenueSupabaseClient.from('records').insert([record]);
         return { action: 'added' };
       }
     } else if (proj === '技术服务' || proj === '保证金') {
@@ -555,7 +556,7 @@ const SB = {
         record['归属服务商企业'], record['客户'],
         record['收入金额']
       ].join('||');
-      const { data: existing } = await supabase
+      const { data: existing } = await revenueSupabaseClient
         .from('records')
         .select('*')
         .eq('_techKey', techKey)
@@ -569,22 +570,77 @@ const SB = {
       merged._updatedAt = new Date().toISOString();
       merged._techKey = techKey;
       if (existing) {
-        await supabase.from('records').update(merged).eq('id', existing.id);
+        await revenueSupabaseClient.from('records').update(merged).eq('id', existing.id);
         return { action: 'skipped' };
       } else {
-        await supabase.from('records').insert([merged]);
+        await revenueSupabaseClient.from('records').insert([merged]);
         return { action: 'added' };
       }
     } else {
       // 其他类型：直接插入
-      await supabase.from('records').insert([record]);
+      await revenueSupabaseClient.from('records').insert([record]);
       return { action: 'added' };
     }
   },
   // 清空所有记录
   async clear() {
-    const { error } = await supabase.from('records').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    const { error } = await revenueSupabaseClient.from('records').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     if (error) throw error;
+  },
+  // 批量插入（分批避免 payload 过大）
+  async bulkInsert(records, chunkSize = 200) {
+    if (!records || !records.length) return;
+    for (let i = 0; i < records.length; i += chunkSize) {
+      const chunk = records.slice(i, i + chunkSize);
+      const { error } = await revenueSupabaseClient.from('records').insert(chunk);
+      if (error) throw error;
+    }
+  },
+  // 可选：云端附件表（若不存在则静默降级）
+  async getAllFilesSafe() {
+    try {
+      const { data, error } = await revenueSupabaseClient.from('record_files').select('*');
+      if (error) throw error;
+      return data || [];
+    } catch (e) {
+      return null;
+    }
+  },
+  async replaceAllFilesSafe(items) {
+    try {
+      const { error: delErr } = await revenueSupabaseClient.from('record_files').delete().neq('record_key', '__never__');
+      if (delErr) throw delErr;
+      if (items && items.length) {
+        const { error: insErr } = await revenueSupabaseClient.from('record_files').insert(items);
+        if (insErr) throw insErr;
+      }
+      return true;
+    } catch (e) {
+      return false;
+    }
+  },
+  // 可选：云端元数据表（若不存在则静默降级）
+  async getAllMetaSafe() {
+    try {
+      const { data, error } = await revenueSupabaseClient.from('meta_kv').select('*');
+      if (error) throw error;
+      return data || [];
+    } catch (e) {
+      return null;
+    }
+  },
+  async replaceAllMetaSafe(items) {
+    try {
+      const { error: delErr } = await revenueSupabaseClient.from('meta_kv').delete().neq('key', '__never__');
+      if (delErr) throw delErr;
+      if (items && items.length) {
+        const { error: insErr } = await revenueSupabaseClient.from('meta_kv').insert(items);
+        if (insErr) throw insErr;
+      }
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 };
 
@@ -1865,15 +1921,40 @@ function exportCSV() {
 
 // ===================== 备份 =====================
 async function exportBackup() {
-  const records = await IDB.getAll();
-  const images = await IDB.getAllImages();
-  const meta = await IDB.getAllMeta();
+  let source = 'supabase';
+  let records = [];
+  let images = [];
+  let meta = [];
+  try {
+    records = await SB.getAll();
+    const cloudFiles = await SB.getAllFilesSafe();
+    const cloudMeta = await SB.getAllMetaSafe();
+    if (cloudFiles) {
+      // 统一导出为旧版兼容格式：[{orderId, images}]
+      images = cloudFiles.map(x => ({ orderId: x.record_key, images: x.files || [] }));
+    } else {
+      images = await IDB.getAllImages();
+      source = 'supabase+localFiles';
+    }
+    if (cloudMeta) {
+      meta = cloudMeta.map(x => ({ key: x.key, value: x.value }));
+    } else {
+      meta = await IDB.getAllMeta();
+    }
+  } catch (e) {
+    // Supabase 不可用时降级本地
+    source = 'indexeddb';
+    await IDB.open();
+    records = await IDB.getAll();
+    images = await IDB.getAllImages();
+    meta = await IDB.getAllMeta();
+  }
   // 保留 id 以便重新导入后图片 key 仍能匹配
-  const blob = new Blob([JSON.stringify({ version:5, exportedAt:new Date().toISOString(), records, images, meta },null,2)],{type:'application/json'});
+  const blob = new Blob([JSON.stringify({ version:6, exportedAt:new Date().toISOString(), source, records, images, meta },null,2)],{type:'application/json'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
   a.download = `收入管理备份_${new Date().toISOString().substring(0,10)}.json`;
   a.click(); URL.revokeObjectURL(a.href);
-  toast('备份导出成功');
+  toast(`备份导出成功（${source}）`);
 }
 
 async function importBackup(input) {
@@ -1881,31 +1962,53 @@ async function importBackup(input) {
   let backup;
   try { backup = JSON.parse(await file.text()); } catch(e) { toast('备份文件格式错误！','danger'); return; }
   if (!confirm(`确认导入备份？将覆盖现有 ${allData.length} 条数据。`)) return;
+  const recordsToImport = (backup.records || []).map(r => {
+    const rc = { ...r };
+    if (!(backup.version >= 4) && rc.id !== undefined) delete rc.id;
+    return rc;
+  });
 
-  await IDB.clearAllStores();
-  const tx = IDB.db.transaction('records','readwrite');
-  const store = tx.objectStore('records');
-  // version:4/5 保留原 id，恢复后图片 key 仍能匹配
-  for (const r of (backup.records||[])) {
-    const rc = {...r};
-    if ((backup.version === 4 || backup.version === 5) && rc.id !== undefined) {
-      store.put(rc); // 用原 id，图片 key 关联不变
-    } else {
-      delete rc.id; store.add(rc); // 旧格式无 id，自动生成
+  try {
+    // 先恢复到 Supabase（云端主数据）
+    await SB.clear();
+    await SB.bulkInsert(recordsToImport);
+
+    // 可选恢复：云端附件与元数据表（若不存在则跳过）
+    if (backup.images && Array.isArray(backup.images)) {
+      const cloudFileRows = backup.images.map(x => ({ record_key: x.orderId, files: x.images || [] }));
+      await SB.replaceAllFilesSafe(cloudFileRows);
     }
-  }
-  await new Promise(res => { tx.oncomplete = res; });
-  if (backup.images) {
-    for (const img of backup.images) await IDB.putImages(img.orderId, img.images);
-  }
-  if (backup.meta && Array.isArray(backup.meta)) {
-    const metaTx = IDB.db.transaction('meta', 'readwrite');
-    const metaStore = metaTx.objectStore('meta');
-    for (const m of backup.meta) metaStore.put(m);
-    await new Promise(res => { metaTx.oncomplete = res; });
+    if (backup.meta && Array.isArray(backup.meta)) {
+      const cloudMetaRows = backup.meta.map(x => ({ key: x.key, value: x.value }));
+      await SB.replaceAllMetaSafe(cloudMetaRows);
+    }
+
+    // 同步刷新本地页面数据（从云端拉取）
+    allData = await SB.getAll();
+  } catch (e) {
+    // 云端失败时保留旧能力：恢复到本地 IndexedDB
+    await IDB.open();
+    await IDB.clearAllStores();
+    const tx = IDB.db.transaction('records','readwrite');
+    const store = tx.objectStore('records');
+    for (const r of recordsToImport) {
+      const rc = { ...r };
+      if (rc.id !== undefined) store.put(rc);
+      else store.add(rc);
+    }
+    await new Promise(res => { tx.oncomplete = res; });
+    if (backup.images) {
+      for (const img of backup.images) await IDB.putImages(img.orderId, img.images);
+    }
+    if (backup.meta && Array.isArray(backup.meta)) {
+      const metaTx = IDB.db.transaction('meta', 'readwrite');
+      const metaStore = metaTx.objectStore('meta');
+      for (const m of backup.meta) metaStore.put(m);
+      await new Promise(res => { metaTx.oncomplete = res; });
+    }
+    allData = await IDB.getAll();
   }
 
-  allData = await IDB.getAll();
   buildFilterOptions(); doSearch(); updateDBInfo();
   toast(`备份导入成功：${allData.length} 条`);
   input.value = '';
@@ -1913,7 +2016,13 @@ async function importBackup(input) {
 
 async function clearAllData() {
   if (!confirm('确定清空所有数据？此操作不可恢复！')) return;
-  await IDB.clearAllStores(); allData = [];
+  try {
+    await SB.clear();
+    allData = await SB.getAll();
+  } catch (e) {
+    await IDB.clearAllStores();
+    allData = [];
+  }
   buildFilterOptions(); doSearch(); updateDBInfo();
   toast('数据已清空');
 }
