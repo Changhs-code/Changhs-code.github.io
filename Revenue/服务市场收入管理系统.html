@@ -61,16 +61,16 @@
   .card-title { font-size: 15px; font-weight: 700; color: var(--primary-dark); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
   .card-title::before { content: ''; display: inline-block; width: 4px; height: 18px; background: var(--primary); border-radius: 2px; }
 
-  .stats-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 14px; margin-bottom: 18px; }
-  .stat-card { background: var(--card); border-radius: 12px; padding: 16px 18px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 4px; border-left: 4px solid var(--primary); transition: box-shadow .2s; }
+  .stats-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .stat-card { background: var(--card); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 2px; border-left: 4px solid var(--primary); transition: box-shadow .2s; }
   .stat-card:nth-child(2) { border-left-color: var(--accent); }
   .stat-card:nth-child(3) { border-left-color: var(--success); }
   .stat-card:nth-child(4) { border-left-color: var(--warning); }
   .stat-card:nth-child(5) { border-left-color: var(--info); }
   .stat-card:hover { box-shadow: var(--shadow-hover); }
-  .stat-label { font-size: 12px; color: var(--text-muted); }
-  .stat-value { font-size: 22px; font-weight: 700; color: var(--text); }
-  .stat-sub { font-size: 11px; color: var(--text-muted); }
+  .stat-label { font-size: 11px; color: var(--text-muted); font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; white-space: nowrap; }
+  .stat-value { font-size: 20px; font-weight: 700; color: var(--text); font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; }
+  .stat-sub { font-size: 10px; color: var(--text-muted); font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; }
 
   .filter-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; align-items: end; }
   .filter-item { display: flex; flex-direction: column; gap: 5px; }
@@ -239,39 +239,39 @@
   <div class="tab-content active" id="tab-query">
     <div class="stats-bar">
       <div class="stat-card">
-        <div class="stat-label">总记录数 / Records</div>
+        <div class="stat-label">总记录数</div>
         <div class="stat-value" id="statTotal">0</div>
-        <div class="stat-sub">条数据</div>
+        <div class="stat-sub" id="statTotalSub">条</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">总收入金额</div>
         <div class="stat-value" id="statOrder">¥0</div>
-        <div class="stat-sub">元</div>
+        <div class="stat-sub" id="statOrderSub">项目合计</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">平台服务费</div>
+        <div class="stat-label">平台服务</div>
         <div class="stat-value" id="statActual">¥0</div>
-        <div class="stat-sub">服务费+手续费合计</div>
+        <div class="stat-sub" id="statActualSub">手续费+服务费</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">服务市场</div>
-        <div class="stat-value" id="statSM">0</div>
-        <div class="stat-sub">条</div>
+        <div class="stat-value" id="statSM">¥0</div>
+        <div class="stat-sub" id="statSMSub">条</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">技术服务</div>
-        <div class="stat-value" id="statTech">0</div>
-        <div class="stat-sub">条</div>
+        <div class="stat-value" id="statTech">¥0</div>
+        <div class="stat-sub" id="statTechSub">条</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">保证金</div>
-        <div class="stat-value" id="statDeposit">0</div>
-        <div class="stat-sub">条</div>
+        <div class="stat-value" id="statDeposit">¥0</div>
+        <div class="stat-sub" id="statDepositSub">条</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">订单服务</div>
-        <div class="stat-value" id="statOrderService">0</div>
-        <div class="stat-sub">条</div>
+        <div class="stat-value" id="statOrderService">¥0</div>
+        <div class="stat-sub" id="statOrderServiceSub">条</div>
       </div>
     </div>
 
@@ -1176,17 +1176,34 @@ function updateStats() {
   const total = filteredData.length;
   const order = filteredData.filter(r => r['项目'] !== '保证金').reduce((s,r) => s + (parseFloat(r['收入金额']) || 0), 0);
   const actual = filteredData.reduce((s,r) => s + (parseFloat(r['服务费']) || 0) + (parseFloat(r['交易手续费']) || 0), 0);
-  const smCount = filteredData.filter(r => r['项目'] === '服务市场').length;
-  const techCount = filteredData.filter(r => r['项目'] === '技术服务').length;
-  const depositCount = filteredData.filter(r => r['项目'] === '保证金').length;
-  const orderServiceCount = filteredData.filter(r => r['项目'] === '订单服务').length;
+
+  // 服务市场：金额 + 条数
+  const smData = filteredData.filter(r => r['项目'] === '服务市场');
+  const smAmount = smData.reduce((s,r) => s + (parseFloat(r['收入金额']) || 0), 0);
+  document.getElementById('statSM').textContent = '¥' + fmtNum(smAmount);
+  document.getElementById('statSMSub').textContent = smData.length + ' 条';
+
+  // 技术服务：金额 + 条数
+  const techData = filteredData.filter(r => r['项目'] === '技术服务');
+  const techAmount = techData.reduce((s,r) => s + (parseFloat(r['收入金额']) || 0), 0);
+  document.getElementById('statTech').textContent = '¥' + fmtNum(techAmount);
+  document.getElementById('statTechSub').textContent = techData.length + ' 条';
+
+  // 保证金：金额 + 条数
+  const depositData = filteredData.filter(r => r['项目'] === '保证金');
+  const depositAmount = depositData.reduce((s,r) => s + (parseFloat(r['收入金额']) || 0), 0);
+  document.getElementById('statDeposit').textContent = '¥' + fmtNum(depositAmount);
+  document.getElementById('statDepositSub').textContent = depositData.length + ' 条';
+
+  // 订单服务：金额 + 条数
+  const orderServiceData = filteredData.filter(r => r['项目'] === '订单服务');
+  const orderServiceAmount = orderServiceData.reduce((s,r) => s + (parseFloat(r['收入金额']) || 0), 0);
+  document.getElementById('statOrderService').textContent = '¥' + fmtNum(orderServiceAmount);
+  document.getElementById('statOrderServiceSub').textContent = orderServiceData.length + ' 条';
+
   document.getElementById('statTotal').textContent = total;
   document.getElementById('statOrder').textContent = '¥' + fmtNum(order);
   document.getElementById('statActual').textContent = '¥' + fmtNum(actual);
-  document.getElementById('statSM').textContent = smCount;
-  document.getElementById('statTech').textContent = techCount;
-  document.getElementById('statDeposit').textContent = depositCount;
-  document.getElementById('statOrderService').textContent = orderServiceCount;
   document.getElementById('resultCount').textContent = `共 ${total} 条记录`;
 }
 
@@ -1263,9 +1280,9 @@ async function renderTable() {
       ${cols}
       <td>
         <div style="display:flex;gap:4px">
-          <button class="btn btn-outline btn-xs" onclick="viewDetail(${r.id})">详情</button>
-          <button class="btn btn-primary btn-xs" onclick="editRecord(${r.id})">编辑</button>
-          <button class="btn btn-danger btn-xs" onclick="deleteRecord(${r.id})">删除</button>
+          <button class="btn btn-outline btn-xs" onclick="viewDetail('${r.id}')">详情</button>
+          <button class="btn btn-primary btn-xs" onclick="editRecord('${r.id}')">编辑</button>
+          <button class="btn btn-danger btn-xs" onclick="deleteRecord('${r.id}')">删除</button>
         </div>
       </td>
     </tr>`;
@@ -1519,7 +1536,7 @@ function renderEditForm(r) {
     { key:'备注', label:'备注', type:'textarea', full:true },
   ];
 
-  let html = `<form class="edit-form" id="editForm" onsubmit="saveRecord(event,${r?r.id:'null'})">`;
+  let html = `<form class="edit-form" id="editForm" onsubmit="saveRecord(event,'${r ? r.id : ''}')">`;
   smFormFields.forEach(f => {
     const val = r ? (r[f.key] != null ? r[f.key] : '') : '';
     const cls = f.full ? 'full' : '';
