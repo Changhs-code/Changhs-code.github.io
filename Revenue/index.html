@@ -908,21 +908,52 @@ const IDB = {
 
 // ===================== 初始化 =====================
 async function init() {
+  // 第一步：打开本地 IndexedDB（始终优先）
+  await IDB.open();
+  allData = await IDB.getAll();
+  console.log('>>> IndexedDB 加载完成，共', allData.length, '条记录');
+
+  // 第二步：尝试从云端 Supabase 获取数据
+  let cloudAvailable = false;
   try {
-    console.log('初始化: 尝试连接 Supabase...');
-    allData = await SB.getAll();
-    ACTIVE_STORE = 'supabase';
-    console.log('数据来源: Supabase (云端)');
+    console.log('>>> 尝试连接 Supabase...');
+    const cloudData = await SB.getAll();
+    console.log('>>> Supabase 返回', cloudData?.length || 0, '条记录');
+
+    if (cloudData && cloudData.length > 0) {
+      // 云端有数据，合并到本地
+      for (const record of cloudData) {
+        await IDB.upsert(record);
+      }
+      allData = await IDB.getAll();
+      console.log('>>> 从云端同步了', cloudData.length, '条记录到本地');
+      cloudAvailable = true;
+    } else if (allData.length > 0) {
+      // 本地有数据，云端为空，先尝试上传本地数据到云端
+      console.log('>>> 本地有', allData.length, '条数据，尝试上传到云端...');
+      for (const record of allData) {
+        try {
+          await SB.add(record);
+        } catch(uploadErr) {
+          console.warn('>>> 上传失败:', uploadErr.message);
+        }
+      }
+      cloudAvailable = true;
+    }
   } catch(e) {
-    console.warn('初始化: Supabase 加载失败，降级到本地 IndexedDB', e.message || e);
-    await IDB.open();
-    allData = await IDB.getAll();
-    ACTIVE_STORE = 'indexeddb';
-    console.log('数据来源: 本地 IndexedDB');
+    console.warn('>>> Supabase 连接失败:', e.message || e);
+    cloudAvailable = false;
   }
+
+  // 设置存储模式
+  ACTIVE_STORE = cloudAvailable ? 'supabase' : 'indexeddb';
+  console.log('>>> 当前模式:', ACTIVE_STORE === 'supabase' ? '云端优先' : '本地优先');
+  console.log('>>> 当前数据:', allData.length, '条');
+
   buildFilterOptions();
   doSearch();
   updateDBInfo();
+
   // 点击外部关闭下拉
   window.addEventListener('click', function(e) {
     if (e.target.closest('.multi-select')) return;
@@ -1495,23 +1526,30 @@ async function saveRecord(e, id) {
   }
 
   try {
-    if (ACTIVE_STORE === 'supabase') {
-      if (id) {
-        const existing = allData.find(x => x.id === id);
-        await SB.update(id, Object.assign({}, existing, data, { id }));
-      } else {
-        await SB.add(data);
-      }
-      allData = await SB.getAll();
+    // 始终先保存到本地 IndexedDB（确保数据不丢失）
+    if (id) {
+      const existing = allData.find(x => x.id === id);
+      await IDB.put(Object.assign({}, existing, data, { id }));
     } else {
-      if (id) {
-        const existing = allData.find(x => x.id === id);
-        await IDB.put(Object.assign({}, existing, data, { id }));
-      } else {
-        await IDB.upsert(data);
-      }
-      allData = await IDB.getAll();
+      await IDB.upsert(data);
     }
+
+    // 尝试同步到云端（如果可用）
+    if (ACTIVE_STORE === 'supabase') {
+      try {
+        if (id) {
+          const existing = allData.find(x => x.id === id);
+          await SB.update(id, Object.assign({}, existing, data, { id }));
+        } else {
+          await SB.add(data);
+        }
+      } catch(cloudErr) {
+        console.warn('云端同步失败，数据已保存在本地:', cloudErr.message);
+        // 不提示用户错误，因为本地保存成功了
+      }
+    }
+
+    allData = await IDB.getAll();
   } catch(e) {
     toast('保存失败：' + e.message, 'danger');
     console.error('保存失败', e);
@@ -1526,13 +1564,20 @@ async function saveRecord(e, id) {
 
 async function deleteRecord(id) {
   if (!confirm('确定删除该记录？')) return;
+
+  // 始终先从本地删除
+  await IDB.delete(id);
+  allData = allData.filter(x => x.id !== id);
+
+  // 尝试同步删除到云端
   if (ACTIVE_STORE === 'supabase') {
-    await SB.delete(id);
-    allData = allData.filter(x => x.id !== id);
-  } else {
-    await IDB.delete(id);
-    allData = allData.filter(x => x.id !== id);
+    try {
+      await SB.delete(id);
+    } catch(e) {
+      console.warn('云端删除失败，本地已删除:', e.message);
+    }
   }
+
   buildFilterOptions();
   doSearch();
   updateDBInfo();
