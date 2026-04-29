@@ -496,14 +496,20 @@ const SB = {
   // 获取所有记录
   async getAll() {
     try {
+      console.log('Supabase: 正在加载 records 表...');
       const { data, error } = await revenueSupabaseClient
         .from('records')
-        .select('*')
-        .order('id', { ascending: false });
+        .select('*');
       if (error) {
-        console.error('Supabase getAll error:', error);
+        console.error('Supabase getAll error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
         throw error;
       }
+      console.log('Supabase: 加载成功，共', data?.length || 0, '条记录');
       return data || [];
     } catch (e) {
       console.error('Supabase getAll exception:', e);
@@ -903,13 +909,16 @@ const IDB = {
 // ===================== 初始化 =====================
 async function init() {
   try {
+    console.log('初始化: 尝试连接 Supabase...');
     allData = await SB.getAll();
     ACTIVE_STORE = 'supabase';
+    console.log('数据来源: Supabase (云端)');
   } catch(e) {
-    console.warn('Supabase 加载失败，降级到本地 IndexedDB', e);
+    console.warn('初始化: Supabase 加载失败，降级到本地 IndexedDB', e.message || e);
     await IDB.open();
     allData = await IDB.getAll();
     ACTIVE_STORE = 'indexeddb';
+    console.log('数据来源: 本地 IndexedDB');
   }
   buildFilterOptions();
   doSearch();
