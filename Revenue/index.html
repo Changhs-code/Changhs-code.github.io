@@ -495,12 +495,20 @@ const SB = {
   },
   // 获取所有记录
   async getAll() {
-    const { data, error } = await revenueSupabaseClient
-      .from('records')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-    return data || [];
+    try {
+      const { data, error } = await revenueSupabaseClient
+        .from('records')
+        .select('*')
+        .order('id', { ascending: false });
+      if (error) {
+        console.error('Supabase getAll error:', error);
+        throw error;
+      }
+      return data || [];
+    } catch (e) {
+      console.error('Supabase getAll exception:', e);
+      throw e;
+    }
   },
   // 新增单条
   async add(record) {
