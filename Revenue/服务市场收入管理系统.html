@@ -1314,9 +1314,16 @@ function goPage(p) {
 
 // ===================== 详情弹窗 =====================
 async function viewDetail(id) {
+  console.log('viewDetail called with id:', id, 'type:', typeof id);
+  console.log('allData ids sample:', allData.slice(0,5).map(x => ({id: x.id, type: typeof x.id})));
   // 使用 == 兼容数字和字符串 ID 比较
   const r = allData.find(x => x.id == id);
-  if (!r) return;
+  if (!r) {
+    console.error('Record not found for id:', id);
+    toast('记录未找到: ' + id, 'danger');
+    return;
+  }
+  console.log('Found record:', r['详情'] || r['服务订单号']);
   // 优先用显式_imgKey（备份恢复后稳定），其次服务订单号，最后兜底id_
   const key = r['_imgKey'] || r['服务订单号'] || ('id_' + r.id);
   const images = await IDB.getImages(key);
