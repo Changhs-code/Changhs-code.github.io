@@ -478,6 +478,15 @@
 <div id="toast"></div>
 
 <script>
+// ===================== 工具函数 =====================
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 // ===================== Supabase 配置 =====================
 const SUPABASE_URL = 'https://uuymcvyuxinzgattyexn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV1eW1jdnl1eGluemdhdHR5ZXhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczNTYzODksImV4cCI6MjA5MjkzMjM4OX0.DP2UGmvGC3XKGtQXKem84UmkhTX1z6cjZ0a3SXcaS8M';
@@ -921,23 +930,47 @@ async function init() {
     console.log('>>> Supabase 返回', cloudData?.length || 0, '条记录');
 
     if (cloudData && cloudData.length > 0) {
-      // 云端有数据，合并到本地
+      // 云端有数据，合并到本地（用 cloudId 存储本地关联）
       for (const record of cloudData) {
+        // 为云端数据生成一个临时的本地 id
+        record.localId = record.id;
         await IDB.upsert(record);
       }
       allData = await IDB.getAll();
       console.log('>>> 从云端同步了', cloudData.length, '条记录到本地');
       cloudAvailable = true;
     } else if (allData.length > 0) {
-      // 本地有数据，云端为空，先尝试上传本地数据到云端
+      // 本地有数据，云端为空，上传本地数据到云端
       console.log('>>> 本地有', allData.length, '条数据，尝试上传到云端...');
+      let uploaded = 0;
       for (const record of allData) {
         try {
-          await SB.add(record);
+          // 生成新 UUID 给 Supabase
+          const newId = generateUUID();
+          const recordForCloud = Object.assign({}, record);
+          delete recordForCloud.id; // 删除数字 id，让 Supabase 用新 UUID
+          recordForCloud.id = newId;
+
+          await SB.add(recordForCloud);
+          uploaded++;
         } catch(uploadErr) {
           console.warn('>>> 上传失败:', uploadErr.message);
         }
       }
+      console.log('>>> 成功上传', uploaded, '条记录到云端');
+
+      // 从云端重新获取（这样 id 就统一是 UUID 了）
+      const cloudDataAfterUpload = await SB.getAll();
+      if (cloudDataAfterUpload && cloudDataAfterUpload.length > 0) {
+        // 清空本地，用云端数据替代
+        await IDB.clear();
+        for (const record of cloudDataAfterUpload) {
+          await IDB.upsert(record);
+        }
+        allData = cloudDataAfterUpload;
+        console.log('>>> 用云端数据同步本地，共', allData.length, '条');
+      }
+
       cloudAvailable = true;
     }
   } catch(e) {
@@ -1143,17 +1176,30 @@ function updateStats() {
   const total = filteredData.length;
   const order = filteredData.filter(r => r['项目'] !== '保证金').reduce((s,r) => s + (parseFloat(r['收入金额']) || 0), 0);
   const actual = filteredData.reduce((s,r) => s + (parseFloat(r['服务费']) || 0) + (parseFloat(r['交易手续费']) || 0), 0);
-  const smCount = filteredData.filter(r => r['项目'] === '服务市场').length;
-  const techCount = filteredData.filter(r => r['项目'] === '技术服务').length;
-  const depositCount = filteredData.filter(r => r['项目'] === '保证金').length;
-  const orderServiceCount = filteredData.filter(r => r['项目'] === '订单服务').length;
+
+  // 服务市场：金额 + 条数
+  const smData = filteredData.filter(r => r['项目'] === '服务市场');
+  const smAmount = smData.reduce((s,r) => s + (parseFloat(r['收入金额']) || 0), 0);
+  document.getElementById('statSM').textContent = '¥' + fmtNum(smAmount) + ' / ' + smData.length + '条';
+
+  // 技术服务：金额 + 条数
+  const techData = filteredData.filter(r => r['项目'] === '技术服务');
+  const techAmount = techData.reduce((s,r) => s + (parseFloat(r['收入金额']) || 0), 0);
+  document.getElementById('statTech').textContent = '¥' + fmtNum(techAmount) + ' / ' + techData.length + '条';
+
+  // 保证金：金额 + 条数
+  const depositData = filteredData.filter(r => r['项目'] === '保证金');
+  const depositAmount = depositData.reduce((s,r) => s + (parseFloat(r['收入金额']) || 0), 0);
+  document.getElementById('statDeposit').textContent = '¥' + fmtNum(depositAmount) + ' / ' + depositData.length + '条';
+
+  // 订单服务：金额 + 条数
+  const orderServiceData = filteredData.filter(r => r['项目'] === '订单服务');
+  const orderServiceAmount = orderServiceData.reduce((s,r) => s + (parseFloat(r['收入金额']) || 0), 0);
+  document.getElementById('statOrderService').textContent = '¥' + fmtNum(orderServiceAmount) + ' / ' + orderServiceData.length + '条';
+
   document.getElementById('statTotal').textContent = total;
   document.getElementById('statOrder').textContent = '¥' + fmtNum(order);
   document.getElementById('statActual').textContent = '¥' + fmtNum(actual);
-  document.getElementById('statSM').textContent = smCount;
-  document.getElementById('statTech').textContent = techCount;
-  document.getElementById('statDeposit').textContent = depositCount;
-  document.getElementById('statOrderService').textContent = orderServiceCount;
   document.getElementById('resultCount').textContent = `共 ${total} 条记录`;
 }
 
@@ -1526,7 +1572,14 @@ async function saveRecord(e, id) {
   }
 
   try {
-    // 始终先保存到本地 IndexedDB（确保数据不丢失）
+    // 如果是新增记录（没有 id），先生成 UUID
+    let cloudId = id;
+    if (!cloudId) {
+      cloudId = generateUUID();
+      data.id = cloudId; // 使用 UUID 作为本地 id
+    }
+
+    // 保存到本地 IndexedDB
     if (id) {
       const existing = allData.find(x => x.id === id);
       await IDB.put(Object.assign({}, existing, data, { id }));
@@ -1537,15 +1590,35 @@ async function saveRecord(e, id) {
     // 尝试同步到云端（如果可用）
     if (ACTIVE_STORE === 'supabase') {
       try {
-        if (id) {
-          const existing = allData.find(x => x.id === id);
-          await SB.update(id, Object.assign({}, existing, data, { id }));
+        // 准备云端数据（确保 id 是 UUID）
+        const cloudData = Object.assign({}, data);
+        if (!cloudId || cloudId.length > 20) {
+          // 已经是 UUID，直接使用
         } else {
-          await SB.add(data);
+          // 是数字 id，需要生成新的 UUID
+          cloudData.id = generateUUID();
+        }
+
+        if (id) {
+          // 更新：使用现有记录
+          const existing = allData.find(x => x.id === id);
+          await SB.update(id, Object.assign({}, existing, cloudData, { id: cloudData.id }));
+        } else {
+          // 新增：直接插入
+          delete cloudData.id; // 让 Supabase 自动生成 UUID
+          await SB.add(cloudData);
+        }
+
+        // 从云端重新获取数据同步本地
+        const cloudDataAfterSave = await SB.getAll();
+        if (cloudDataAfterSave && cloudDataAfterSave.length > 0) {
+          await IDB.clear();
+          for (const record of cloudDataAfterSave) {
+            await IDB.upsert(record);
+          }
         }
       } catch(cloudErr) {
         console.warn('云端同步失败，数据已保存在本地:', cloudErr.message);
-        // 不提示用户错误，因为本地保存成功了
       }
     }
 
