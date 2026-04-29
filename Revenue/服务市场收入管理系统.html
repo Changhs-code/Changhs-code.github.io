@@ -1314,7 +1314,8 @@ function goPage(p) {
 
 // ===================== 详情弹窗 =====================
 async function viewDetail(id) {
-  const r = allData.find(x => x.id === id);
+  // 使用 == 兼容数字和字符串 ID 比较
+  const r = allData.find(x => x.id == id);
   if (!r) return;
   // 优先用显式_imgKey（备份恢复后稳定），其次服务订单号，最后兜底id_
   const key = r['_imgKey'] || r['服务订单号'] || ('id_' + r.id);
@@ -1428,7 +1429,7 @@ async function uploadFilesList(files, id, key) {
   await IDB.putImages(key, newFiles);
   refreshGallery(id, key, newFiles);
   // 记录文件数量、显式图片key（备份恢复后仍稳定关联）
-  const rec = allData.find(x => x.id === id);
+  const rec = allData.find(x => x.id == id);
   if (rec) await IDB.put(Object.assign({}, rec, {
     _fileCount: newFiles.length,
     _imgKey: key,
@@ -1469,7 +1470,7 @@ async function delFile(id, key, idx) {
   imgs.splice(idx, 1);
   await IDB.putImages(key, imgs);
   refreshGallery(id, key, imgs);
-  const rec = allData.find(x => x.id === id);
+  const rec = allData.find(x => x.id == id);
   if (rec) await IDB.put(Object.assign({}, rec, { _fileCount: imgs.length, _imgKey: key, _updatedAt: new Date().toISOString() }));
   toast('已删除');
 }
@@ -1511,7 +1512,7 @@ function previewImg(src) { document.getElementById('imgPreviewImg').src = src; d
 
 // ===================== 编辑/新增 =====================
 function openAddModal() { renderEditForm(null); openModal('detailModal'); }
-function editRecord(id) { renderEditForm(allData.find(x => x.id === id)); openModal('detailModal'); }
+function editRecord(id) { renderEditForm(allData.find(x => x.id == id)); openModal('detailModal'); }
 
 function renderEditForm(r) {
   const isNew = !r;
@@ -1585,7 +1586,7 @@ async function saveRecord(e, id) {
 
     // 保存到本地 IndexedDB
     if (id) {
-      const existing = allData.find(x => x.id === id);
+      const existing = allData.find(x => x.id == id);
       await IDB.put(Object.assign({}, existing, data, { id }));
     } else {
       await IDB.upsert(data);
@@ -1605,7 +1606,7 @@ async function saveRecord(e, id) {
 
         if (id) {
           // 更新：使用现有记录
-          const existing = allData.find(x => x.id === id);
+          const existing = allData.find(x => x.id == id);
           await SB.update(id, Object.assign({}, existing, cloudData, { id: cloudData.id }));
         } else {
           // 新增：直接插入
@@ -1644,7 +1645,7 @@ async function deleteRecord(id) {
 
   // 始终先从本地删除
   await IDB.delete(id);
-  allData = allData.filter(x => x.id !== id);
+  allData = allData.filter(x => x.id != id);
 
   // 尝试同步删除到云端
   if (ACTIVE_STORE === 'supabase') {
