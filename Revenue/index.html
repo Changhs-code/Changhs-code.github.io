@@ -1598,39 +1598,31 @@ async function saveRecord(e, id) {
     // 尝试同步到云端（如果可用）
     if (ACTIVE_STORE === 'supabase') {
       try {
-        // 准备云端数据（确保 id 是 UUID）
-        const cloudData = Object.assign({}, data);
-        if (!cloudId || cloudId.length > 20) {
-          // 已经是 UUID，直接使用
-        } else {
-          // 是数字 id，需要生成新的 UUID
-          cloudData.id = generateUUID();
-        }
-
+        const cloudRecord = Object.assign({}, data);
         if (id) {
-          // 更新：使用现有记录
-          const existing = allData.find(x => x.id == id);
-          await SB.update(id, Object.assign({}, existing, cloudData, { id: cloudData.id }));
+          // 编辑已有记录：尝试更新（可能本地是新记录，云端还没有）
+          try {
+            await SB.update(id, Object.assign({}, cloudRecord, { id }));
+          } catch(updateErr) {
+            // 更新失败（记录不存在云端），改为插入
+            console.warn('云端记录不存在，改为插入新记录:', updateErr.message);
+            cloudRecord.id = id;
+            await SB.add(cloudRecord);
+          }
         } else {
-          // 新增：直接插入
-          delete cloudData.id; // 让 Supabase 自动生成 UUID
-          await SB.add(cloudData);
+          // 新增记录
+          await SB.add(cloudRecord);
         }
 
-        // 从云端重新获取数据同步本地（只有云端有数据时才清空本地）
-        const cloudDataAfterSave = await SB.getAll();
-        if (cloudDataAfterSave && cloudDataAfterSave.length > 0) {
-          await IDB.clear();
-          for (const record of cloudDataAfterSave) {
-            await IDB.upsert(record);
-          }
-        }
+        // 无论云端同步成功与否，始终从本地重新读取（不依赖云端返回）
+        allData = await IDB.getAll();
       } catch(cloudErr) {
         console.warn('云端同步失败，数据已保存在本地:', cloudErr.message);
+        allData = await IDB.getAll();
       }
+    } else {
+      allData = await IDB.getAll();
     }
-
-    allData = await IDB.getAll();
   } catch(e) {
     toast('保存失败：' + e.message, 'danger');
     console.error('保存失败', e);
