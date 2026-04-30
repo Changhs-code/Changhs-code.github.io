@@ -962,16 +962,19 @@ async function init() {
       // 从云端重新获取（这样 id 就统一是 UUID 了）
       const cloudDataAfterUpload = await SB.getAll();
       if (cloudDataAfterUpload && cloudDataAfterUpload.length > 0) {
-        // 清空本地，用云端数据替代
+        // 只有云端实际有数据时才同步，清空本地后替换
         await IDB.clear();
         for (const record of cloudDataAfterUpload) {
           await IDB.upsert(record);
         }
         allData = cloudDataAfterUpload;
         console.log('>>> 用云端数据同步本地，共', allData.length, '条');
+        cloudAvailable = true;
+      } else {
+        // 云端为空（上传全部失败），保持本地数据，降级为本地优先模式
+        console.log('>>> 上传全部失败，保持本地', allData.length, '条记录');
+        cloudAvailable = false;
       }
-
-      cloudAvailable = true;
     }
   } catch(e) {
     console.warn('>>> Supabase 连接失败:', e.message || e);
@@ -1040,13 +1043,6 @@ function handleMultiCheckboxChange(id) {
 }
 
 function removeMultiSelect(id, value) {
-  const dropdown = document.getElementById(`${id}Dropdown`);
-  const cb = dropdown.querySelector(`input[type="checkbox"][value="${value}"]`);
-  if (cb) cb.checked = false;
-  updateMultiSelect(id);
-}
-
-function getMultiSelectValues(id) {
   const dropdown = document.getElementById(`${id}Dropdown`);
   const cb = dropdown.querySelector(`input[type="checkbox"][value="${value}"]`);
   if (cb) cb.checked = false;
@@ -1621,7 +1617,7 @@ async function saveRecord(e, id) {
           await SB.add(cloudData);
         }
 
-        // 从云端重新获取数据同步本地
+        // 从云端重新获取数据同步本地（只有云端有数据时才清空本地）
         const cloudDataAfterSave = await SB.getAll();
         if (cloudDataAfterSave && cloudDataAfterSave.length > 0) {
           await IDB.clear();
